@@ -72,14 +72,16 @@ export default function Register() {
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-semibold mb-2">Phone</label>
+            <label className="block text-sm font-semibold mb-2">📞 Phone Number</label>
             <input
               type="tel"
               name="phone"
               className="input-field"
               value={formData.phone}
               onChange={handleChange}
+              placeholder="e.g., +94 77 123 4567"
             />
+            <p className="text-xs text-gray-500 mt-1">This will appear on all your receipts</p>
           </div>
 
           <div className="mb-6">

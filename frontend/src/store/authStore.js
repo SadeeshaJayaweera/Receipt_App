@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import client from '../api/client';
 
-const useAuthStore = create((set) => ({
+const useAuthStore = create((set, get) => ({
   user: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null,
   token: localStorage.getItem('token') || null,
   isLoading: false,
@@ -30,6 +30,21 @@ const useAuthStore = create((set) => ({
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       set({ user: data.user, token: data.token, error: null });
+      return data;
+    } catch (error) {
+      set({ error: error.response?.data?.message });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  updateProfile: async (profileData) => {
+    set({ isLoading: true });
+    try {
+      const { data } = await client.put('/auth/profile', profileData);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      set({ user: data.user, error: null });
       return data;
     } catch (error) {
       set({ error: error.response?.data?.message });
