@@ -1,11 +1,9 @@
-import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import Navbar from '../components/Navbar';
 
 export default function Dashboard() {
   const user = useAuthStore(state => state.user);
-  const logout = useAuthStore(state => state.logout);
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -19,12 +19,11 @@ const receiptSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-receiptSchema.pre('save', async function(next) {
+receiptSchema.pre('save', async function() {
   if (!this.receiptNumber) {
     const count = await this.constructor.countDocuments({ userId: this.userId });
     this.receiptNumber = `RCP-${this.userId.toString().slice(-4)}-${Date.now()}-${count + 1}`;
   }
-  next();
 });
 
 module.exports = mongoose.model('Receipt', receiptSchema);
