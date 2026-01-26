@@ -1,0 +1,26 @@
+{
+  "name": "juice-receipt-app",
+  "version": "1.0.0",
+  "description": "A receipt generating application for juice businesses",
+  "private": true,
+  "scripts": {
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm start",
+    "build:frontend": "cd frontend && npm run build",
+    "dev": "concurrently \"npm run start:backend\" \"npm run start:frontend\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_USERNAME/juice-receipt-app.git"
+  },
+  "keywords": [
+    "receipt",
+    "juice",
+    "pos",
+    "point-of-sale",
+    "small-business"
+  ],
+  "author": "",
+  "license": "MIT"
+}

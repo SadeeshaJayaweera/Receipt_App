@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Flavours from './pages/Flavours';
 import CreateReceipt from './pages/CreateReceipt';
 import Receipts from './pages/Receipts';
+import Settings from './pages/Settings';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -25,6 +26,9 @@ function App() {
         } />
         <Route path="/receipts" element={
           <ProtectedRoute><Receipts /></ProtectedRoute>
+        } />
+        <Route path="/settings" element={
+          <ProtectedRoute><Settings /></ProtectedRoute>
         } />
 
         <Route path="/" element={<Navigate to="/dashboard" />} />

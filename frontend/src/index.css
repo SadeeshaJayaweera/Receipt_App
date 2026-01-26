@@ -10,26 +10,78 @@
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #f3f4f6;
   min-height: 100vh;
 }
 
+/* Print styles */
+@media print {
+  body {
+    background: white !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
 .btn-primary {
-  @apply bg-primary hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200;
+  @apply bg-primary hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 active:scale-95;
 }
 
 .btn-secondary {
-  @apply bg-secondary hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-lg transition duration-200;
+  @apply bg-secondary hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 active:scale-95;
 }
 
 .btn-danger {
-  @apply bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200;
+  @apply bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 active:scale-95;
 }
 
 .card {
-  @apply bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition duration-200;
+  @apply bg-white rounded-xl shadow-md p-4 sm:p-6 hover:shadow-lg transition duration-200;
 }
 
 .input-field {
-  @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary;
+  @apply w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Mobile touch feedback */
+@media (max-width: 768px) {
+  .card {
+    @apply active:scale-[0.98];
+  }
+}
+
+/* Receipt printing styles */
+.receipt {
+  font-family: 'Courier New', Courier, monospace;
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
 }

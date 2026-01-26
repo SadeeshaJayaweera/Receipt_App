@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -31,7 +32,7 @@ router.post('/register', async (req, res) => {
     res.status(201).json({
       message: 'Registration successful',
       token,
-      user: { id: user._id, businessName: user.businessName, email: user.email }
+      user: { id: user._id, businessName: user.businessName, email: user.email, phone: user.phone, address: user.address }
     });
   } catch (err) {
     console.error('Registration error:', err);
@@ -53,8 +54,46 @@ router.post('/login', async (req, res) => {
     res.json({
       message: 'Login successful',
       token,
-      user: { id: user._id, businessName: user.businessName, email: user.email }
+      user: { id: user._id, businessName: user.businessName, email: user.email, phone: user.phone, address: user.address }
     });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Update profile
+router.put('/profile', authMiddleware, async (req, res) => {
+  try {
+    const { businessName, phone, address } = req.body;
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (businessName) user.businessName = businessName;
+    if (phone !== undefined) user.phone = phone;
+    if (address !== undefined) user.address = address;
+
+    await user.save();
+
+    res.json({
+      message: 'Profile updated',
+      user: { id: user._id, businessName: user.businessName, email: user.email, phone: user.phone, address: user.address }
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get current user profile
+router.get('/profile', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ user: { id: user._id, businessName: user.businessName, email: user.email, phone: user.phone, address: user.address } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
