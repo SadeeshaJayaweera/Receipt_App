@@ -16,7 +16,7 @@ export default function CreateReceipt() {
 
   useEffect(() => {
     fetchFlavours();
-  }, [fetchFlavours]);
+  }, []);
 
   const addItem = () => {
     if (!selectedFlavour || quantity < 1) return;
