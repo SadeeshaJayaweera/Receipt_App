@@ -72,23 +72,23 @@ Before running the application, ensure the following are installed:
 
 **Dashboard Preview**  
 <br>
-<img src="App Preview/Dashboard.png" width="600">
+<img src="App Preview/Dashboard.png">
 
 **Flavours Section**   
 <br>
-<img src="App Preview/Flavours_Section.png" width="600">
+<img src="App Preview/Flavours_Section.png">
 
 **Receipt Creation Section**  
 <br>
-<img src="App Preview/Receipt_Create.png" width="600">
+<img src="App Preview/Receipt_Create.png">
 
 **Receipt History Section**  
 <br>
-<img src="App Preview/Receipt_History.png" width="600">
+<img src="App Preview/Receipt_History.png">
 
 **Contact Settings Section**   
 <br>
-<img src="App Preview/Settings_Contact_Info.png" width="600">
+<img src="App Preview/Settings_Contact_Info.png">
 
 ---
 
