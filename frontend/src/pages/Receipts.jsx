@@ -5,11 +5,11 @@ import { formatDistanceToNow } from 'date-fns';
 
 export default function Receipts() {
   const { receipts, fetchReceipts, downloadPDF, deleteReceipt, isLoading } = useReceiptStore();
-  const [page, setPage] = useState(1);
+  const [page] = useState(1);
 
   useEffect(() => {
     fetchReceipts(page);
-  }, [page]);
+  }, [page, fetchReceipts]);
 
   return (
     <div className="min-h-screen bg-gray-50">
