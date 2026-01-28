@@ -8,6 +8,7 @@ This guide will help you deploy your Juice Receipt App to Vercel for free.
    - Go to https://www.mongodb.com/cloud/atlas
    - Create a free cluster
    - Get your connection string
+   - **IMPORTANT**: Whitelist all IPs (0.0.0.0/0) for Vercel
 
 2. **Vercel Account** (Free)
    - Go to https://vercel.com
@@ -45,7 +46,7 @@ git push -u origin main
 
 ## Step 2: Deploy Backend to Vercel
 
-### Option A: Deploy via Vercel Dashboard (Recommended)
+### Deploy via Vercel Dashboard
 
 1. Go to https://vercel.com/dashboard
 2. Click **"Add New"** → **"Project"**
@@ -56,48 +57,51 @@ git push -u origin main
    - **Build Command:** (leave empty)
    - **Output Directory:** (leave empty)
 
-5. Add Environment Variables:
-   - `MONGODB_URI` = Your MongoDB Atlas connection string
-   - `JWT_SECRET` = A strong random string (e.g., generate at https://randomkeygen.com/)
-   - `NODE_ENV` = production
+5. **Add Environment Variables (REQUIRED!):**
+   ```
+   MONGODB_URI = mongodb+srv://username:password@cluster.mongodb.net/juice-receipt-app
+   JWT_SECRET = your-super-secret-key-at-least-32-characters-long
+   NODE_ENV = production
+   FRONTEND_URL = (leave empty for now, add after deploying frontend)
+   ```
 
 6. Click **"Deploy"**
 
-7. Copy your backend URL (e.g., `https://juice-receipt-backend.vercel.app`)
-
-### Option B: Deploy via CLI
-
-```bash
-cd backend
-npx vercel login
-npx vercel --prod
-```
+7. **Copy your backend URL** (e.g., `https://juice-receipt-backend.vercel.app`)
 
 ---
 
 ## Step 3: Deploy Frontend to Vercel
 
-### Option A: Deploy via Vercel Dashboard (Recommended)
+### Deploy via Vercel Dashboard
 
 1. Go to https://vercel.com/dashboard
-2. Click **"Add New"** → **"Project"**
-3. Import the same GitHub repository
+2. Click **"Add New"** → **"Project"**  
+3. Import the **SAME** GitHub repository again
 4. Configure the project:
    - **Root Directory:** `frontend`
    - **Framework Preset:** Create React App
    - **Build Command:** `npm run build`
    - **Output Directory:** `build`
 
-5. Add Environment Variables:
-   - `REACT_APP_API_URL` = Your backend URL + `/api` (e.g., `https://juice-receipt-backend.vercel.app/api`)
+5. **Add Environment Variables (REQUIRED!):**
+   ```
+   REACT_APP_API_URL = https://YOUR-BACKEND-URL.vercel.app/api
+   ```
+   (Replace with the actual backend URL from Step 2)
 
 6. Click **"Deploy"**
 
-### Option B: Deploy via CLI
+---
 
-```bash
-cd frontend
-npx vercel login
+## Step 4: Update Backend CORS
+
+After deploying the frontend:
+
+1. Go to your backend project on Vercel
+2. Go to **Settings** → **Environment Variables**
+3. Add: `FRONTEND_URL` = `https://YOUR-FRONTEND-URL.vercel.app`
+4. Go to **Deployments** → Click the three dots on the latest deployment → **Redeploy**
 npx vercel --prod
 ```
 

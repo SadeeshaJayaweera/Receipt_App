@@ -11,8 +11,7 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
-  process.env.FRONTEND_URL,
-  /\.vercel\.app$/
+  process.env.FRONTEND_URL
 ].filter(Boolean);
 
 // Middleware - Order matters!
@@ -23,23 +22,25 @@ app.use(cors({
     if (!origin) return callback(null, true);
 
     // Check if origin matches allowed origins
-    const isAllowed = allowedOrigins.some(allowed => {
-      if (allowed instanceof RegExp) {
-        return allowed.test(origin);
-      }
-      return allowed === origin;
-    });
+    const isAllowed = allowedOrigins.some(allowed => allowed === origin);
 
-    if (isAllowed) {
+    // Also allow any vercel.app domain
+    const isVercelApp = /\.vercel\.app$/.test(origin);
+
+    if (isAllowed || isVercelApp) {
       callback(null, true);
     } else {
-      callback(null, true); // Allow all in production for now
+      // In production, allow all for now (you can restrict this later)
+      callback(null, true);
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
 }));
+
+// Handle preflight requests
+app.options('*', cors());
 
 // Helmet with relaxed settings for development
 app.use(helmet({
@@ -99,8 +100,8 @@ app.use((err, req, res, next) => {
 });
 
 // Only listen if not in Vercel serverless environment
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000;
+if (!process.env.VERCEL) {
   app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 }
 
