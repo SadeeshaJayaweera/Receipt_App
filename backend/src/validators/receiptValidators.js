@@ -68,8 +68,15 @@ const updateReceiptSchema = z.object({
   notes: z.string().trim().max(500).optional()
 }).strict('Unrecognized field in update payload');
 
+const voidReceiptSchema = z.object({
+  reason: z.string().trim().min(5, 'Void reason must be at least 5 characters').max(300, 'Void reason cannot exceed 300 characters')
+}).strict('Unrecognized field in void payload');
+
 module.exports = {
   createReceiptSchema,
   updateReceiptSchema,
-  receiptItemSchema
+  receiptItemSchema,
+  customerSchema,
+  paymentSchema,
+  voidReceiptSchema
 };

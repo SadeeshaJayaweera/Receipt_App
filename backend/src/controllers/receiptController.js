@@ -47,6 +47,24 @@ class ReceiptController {
     }
   }
 
+  async voidReceipt(req, res, next) {
+    try {
+      const receipt = await receiptService.voidReceipt(req.userId, req.params.id, req.body.reason);
+      res.json(receipt);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async issueDraft(req, res, next) {
+    try {
+      const receipt = await receiptService.issueDraft(req.userId, req.params.id);
+      res.json(receipt);
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async exportPdf(req, res, next) {
     try {
       const receipt = await receiptService.getById(req.userId, req.params.id);

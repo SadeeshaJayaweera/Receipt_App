@@ -88,7 +88,7 @@ describe('Authorization and Business Data Isolation Tests', () => {
   });
 
   test('receiptService rejects cross-user delete attempt', async () => {
-    const mockFindOneAndDelete = mock.method(Receipt, 'findOneAndDelete', async (query) => {
+    const mockFindOne = mock.method(Receipt, 'findOne', async (query) => {
       assert.equal(query.userId, userB);
       return null;
     });
@@ -100,7 +100,7 @@ describe('Authorization and Business Data Isolation Tests', () => {
       { name: 'NotFoundError', message: 'Receipt not found' }
     );
 
-    mockFindOneAndDelete.mock.restore();
+    mockFindOne.mock.restore();
   });
 
   test('flavourService rejects cross-user update attempt', async () => {
