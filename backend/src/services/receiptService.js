@@ -151,6 +151,13 @@ class ReceiptService {
         changeGiven,
         reference: (paymentData && paymentData.reference ? paymentData.reference.trim() : '')
       },
+      statusHistory: [{
+        fromStatus: 'none',
+        toStatus: status || 'issued',
+        changedAt: new Date(),
+        reason: 'Initial creation',
+        changedBy: userId
+      }],
       notes: notes ? notes.trim() : undefined
     });
 
@@ -161,6 +168,17 @@ class ReceiptService {
     const receipt = await Receipt.findOne({ _id: receiptId, userId });
     if (!receipt) {
       throw new NotFoundError('Receipt not found');
+    }
+
+    if (receipt.status === 'voided') {
+      throw new BadRequestError('Cannot modify a voided receipt');
+    }
+
+    // Protect issued receipt financial immutability
+    if (receipt.status === 'issued') {
+      if (updateData.items || updateData.discount !== undefined || updateData.taxRate !== undefined || updateData.currency) {
+        throw new BadRequestError('Issued receipts are financially immutable. Void the receipt and issue a new one to change items or pricing.');
+      }
     }
 
     let items = receipt.items;
@@ -201,7 +219,16 @@ class ReceiptService {
     receipt.currency = totals.currency;
     receipt.paymentMethod = paymentMethod;
 
-    if (updateData.status) receipt.status = updateData.status;
+    if (updateData.status && updateData.status !== receipt.status) {
+      receipt.statusHistory.push({
+        fromStatus: receipt.status,
+        toStatus: updateData.status,
+        changedAt: new Date(),
+        reason: 'Status updated via update',
+        changedBy: userId
+      });
+      receipt.status = updateData.status;
+    }
 
     // Update customer info
     if (updateData.customer || updateData.customerName !== undefined || updateData.customerPhone !== undefined || updateData.customerEmail !== undefined) {
@@ -242,11 +269,83 @@ class ReceiptService {
     return receipt.save();
   }
 
-  async delete(userId, receiptId) {
-    const receipt = await Receipt.findOneAndDelete({ _id: receiptId, userId });
+  async voidReceipt(userId, receiptId, reason) {
+    if (!reason || reason.trim().length < 5) {
+      throw new BadRequestError('A valid void reason (min 5 characters) is required');
+    }
+
+    const receipt = await Receipt.findOne({ _id: receiptId, userId });
     if (!receipt) {
       throw new NotFoundError('Receipt not found');
     }
+
+    if (receipt.status === 'voided') {
+      throw new BadRequestError(`Receipt ${receipt.receiptNumber} is already voided`);
+    }
+
+    const previousStatus = receipt.status;
+    const trimmedReason = reason.trim();
+
+    receipt.status = 'voided';
+    receipt.voidedAt = new Date();
+    receipt.voidReason = trimmedReason;
+    receipt.voidedBy = userId;
+
+    if (!Array.isArray(receipt.statusHistory)) {
+      receipt.statusHistory = [];
+    }
+
+    receipt.statusHistory.push({
+      fromStatus: previousStatus,
+      toStatus: 'voided',
+      changedAt: new Date(),
+      reason: trimmedReason,
+      changedBy: userId
+    });
+
+    return receipt.save();
+  }
+
+  async issueDraft(userId, receiptId) {
+    const receipt = await Receipt.findOne({ _id: receiptId, userId });
+    if (!receipt) {
+      throw new NotFoundError('Receipt not found');
+    }
+
+    if (receipt.status === 'issued') {
+      throw new BadRequestError('Receipt is already issued');
+    }
+    if (receipt.status === 'voided') {
+      throw new BadRequestError('Cannot issue a voided receipt');
+    }
+
+    const previousStatus = receipt.status;
+    receipt.status = 'issued';
+
+    if (!Array.isArray(receipt.statusHistory)) {
+      receipt.statusHistory = [];
+    }
+
+    receipt.statusHistory.push({
+      fromStatus: previousStatus,
+      toStatus: 'issued',
+      changedAt: new Date(),
+      reason: 'Draft finalized and issued',
+      changedBy: userId
+    });
+
+    return receipt.save();
+  }
+
+  async delete(userId, receiptId) {
+    const receipt = await Receipt.findOne({ _id: receiptId, userId });
+    if (!receipt) {
+      throw new NotFoundError('Receipt not found');
+    }
+    if (receipt.status === 'issued') {
+      throw new BadRequestError('Issued receipts cannot be deleted for audit compliance. Void the receipt instead.');
+    }
+    await Receipt.findOneAndDelete({ _id: receiptId, userId });
     return { message: 'Receipt deleted successfully' };
   }
 }
