@@ -94,6 +94,7 @@ describe('Customer & Transaction Information Tests', () => {
 
   test('filters receipts by customer phone and customer name in queries', async () => {
     const capturedQueries = [];
+    mock.method(Receipt, 'countDocuments', async () => 1);
     mock.method(Receipt, 'find', (filter) => {
       capturedQueries.push(filter);
       return {

@@ -8,40 +8,145 @@ class ReceiptService {
   async getAll(userId, query = {}) {
     const filter = { userId };
 
-    if (query.status) {
+    if (query.status && ['draft', 'issued', 'voided'].includes(query.status)) {
       filter.status = query.status;
     }
 
-    if (query.currency) {
-      filter.currency = query.currency;
+    if (query.currency && ['LKR', 'USD'].includes(query.currency.toUpperCase())) {
+      filter.currency = query.currency.toUpperCase();
     }
 
-    if (query.customerPhone) {
-      const phoneRegex = new RegExp(query.customerPhone.trim(), 'i');
+    if (query.paymentMethod && ['cash', 'card', 'mobile'].includes(query.paymentMethod.toLowerCase())) {
+      const pm = query.paymentMethod.toLowerCase();
       filter.$or = [
-        { 'customer.phone': phoneRegex },
-        { customerPhone: phoneRegex }
+        { 'payment.method': pm },
+        { paymentMethod: pm }
       ];
-    } else if (query.customerName) {
-      const nameRegex = new RegExp(query.customerName.trim(), 'i');
-      filter.$or = [
-        { 'customer.name': nameRegex },
-        { customerName: nameRegex }
-      ];
-    } else if (query.search && query.search.trim()) {
+    }
+
+    // Date range filtering
+    if (query.startDate || query.endDate) {
+      const dateFilter = {};
+      if (query.startDate) {
+        const start = new Date(query.startDate);
+        if (!isNaN(start.getTime())) {
+          dateFilter.$gte = start;
+        }
+      }
+      if (query.endDate) {
+        const end = new Date(query.endDate);
+        if (!isNaN(end.getTime())) {
+          if (query.endDate.length <= 10) {
+            end.setHours(23, 59, 59, 999);
+          }
+          dateFilter.$lte = end;
+        }
+      }
+      if (Object.keys(dateFilter).length > 0) {
+        filter.createdAt = dateFilter;
+      }
+    }
+
+    // Amount range filtering
+    const minVal = query.minAmount !== undefined ? query.minAmount : query.minTotal;
+    const maxVal = query.maxAmount !== undefined ? query.maxAmount : query.maxTotal;
+    if (minVal !== undefined || maxVal !== undefined) {
+      const amountFilter = {};
+      const min = Number(minVal);
+      const max = Number(maxVal);
+      if (!isNaN(min) && min >= 0) amountFilter.$gte = min;
+      if (!isNaN(max) && max >= 0) amountFilter.$lte = max;
+      if (Object.keys(amountFilter).length > 0) {
+        filter.totalAmount = amountFilter;
+      }
+    }
+
+    // Full text search or specific customer filters
+    if (query.search && query.search.trim()) {
       const searchRegex = new RegExp(query.search.trim(), 'i');
       filter.$or = [
         { receiptNumber: searchRegex },
         { 'customer.name': searchRegex },
         { 'customer.phone': searchRegex },
         { customerName: searchRegex },
-        { customerPhone: searchRegex }
+        { customerPhone: searchRegex },
+        { notes: searchRegex },
+        { 'items.flavourName': searchRegex }
       ];
+    } else {
+      if (query.customerPhone) {
+        const phoneRegex = new RegExp(query.customerPhone.trim(), 'i');
+        filter.$or = [
+          { 'customer.phone': phoneRegex },
+          { customerPhone: phoneRegex }
+        ];
+      }
+      if (query.customerName) {
+        const nameRegex = new RegExp(query.customerName.trim(), 'i');
+        filter.$or = [
+          { 'customer.name': nameRegex },
+          { customerName: nameRegex }
+        ];
+      }
     }
 
-    return Receipt.find(filter)
+    // Sorting
+    const allowedSortFields = ['createdAt', 'totalAmount', 'receiptNumber'];
+    const sortBy = allowedSortFields.includes(query.sortBy) ? query.sortBy : 'createdAt';
+    const sortOrder = (query.sortOrder === 'asc' || query.order === 'asc') ? 1 : -1;
+    const sortCriteria = { [sortBy]: sortOrder };
+
+    // Pagination
+    const page = Math.max(1, parseInt(query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
+    const skip = (page - 1) * limit;
+
+    const queryObj = Receipt.find(filter)
       .populate('items.flavourId')
-      .sort({ createdAt: -1 });
+      .sort(sortCriteria);
+
+    const total = typeof Receipt.countDocuments === 'function'
+      ? await Receipt.countDocuments(filter)
+      : 0;
+
+    if (query.paginate === 'false' || query.all === 'true') {
+      const receipts = await queryObj;
+      const safeList = Array.isArray(receipts) ? receipts : [];
+      return {
+        receipts: safeList,
+        pagination: {
+          total: safeList.length,
+          page: 1,
+          limit: safeList.length,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPrevPage: false
+        }
+      };
+    }
+
+    let receipts;
+    if (typeof queryObj.skip === 'function') {
+      receipts = await queryObj.skip(skip).limit(limit);
+    } else {
+      receipts = await queryObj;
+    }
+
+    const safeReceipts = Array.isArray(receipts) ? receipts : [];
+    const totalCount = total || safeReceipts.length;
+    const totalPages = Math.ceil(totalCount / limit) || 1;
+
+    return {
+      receipts: safeReceipts,
+      pagination: {
+        total: totalCount,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    };
   }
 
   async getById(userId, receiptId) {
