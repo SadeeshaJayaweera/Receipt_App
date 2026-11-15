@@ -14,13 +14,55 @@ body {
   min-height: 100vh;
 }
 
-/* Print styles */
+/* 80mm Thermal Receipt Printing Standards */
+@page {
+  size: 80mm auto;
+  margin: 0;
+}
+
 @media print {
-  body {
-    background: white !important;
+  html, body {
+    width: 80mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  .no-print {
+
+  .no-print,
+  nav,
+  header,
+  aside,
+  button,
+  .modal-backdrop {
     display: none !important;
+  }
+
+  .thermal-receipt-container {
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 auto !important;
+    padding: 3mm 0 !important;
+    font-family: 'Courier New', Courier, 'Lucida Console', Monaco, monospace !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+    color: #000 !important;
+  }
+
+  .thermal-receipt-container * {
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .thermal-row,
+  .thermal-item-row,
+  .thermal-total-row {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 }
 
