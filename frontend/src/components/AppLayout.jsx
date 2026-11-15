@@ -31,10 +31,13 @@ import {
   Brightness4 as DarkModeIcon,
   Brightness7 as LightModeIcon,
   Logout as LogoutIcon,
-  Store as StoreIcon
+  Store as StoreIcon,
+  KeyboardOutlined as KeyboardIcon
 } from '@mui/icons-material';
 import useAuthStore from '../store/authStore';
 import { useThemeMode } from '../theme/ThemeContext';
+import useKeyboardShortcuts from '../hooks/useKeyboardShortcuts';
+import KeyboardShortcutsDialog from './KeyboardShortcutsDialog';
 
 const DRAWER_WIDTH = 260;
 
@@ -56,6 +59,11 @@ export default function AppLayout({ children, title }) {
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+  useKeyboardShortcuts({
+    onOpenHelp: () => setShortcutsOpen(true)
+  });
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -188,6 +196,38 @@ export default function AppLayout({ children, title }) {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', backgroundColor: theme.palette.background.default }}>
+      {/* Skip to Main Content Link for Keyboard & Screen Reader Accessibility */}
+      <Box
+        component="a"
+        href="#main-content"
+        sx={{
+          position: 'absolute',
+          left: -9999,
+          top: 'auto',
+          width: 1,
+          height: 1,
+          overflow: 'hidden',
+          zIndex: 9999,
+          '&:focus': {
+            position: 'fixed',
+            top: 16,
+            left: 16,
+            width: 'auto',
+            height: 'auto',
+            px: 2.5,
+            py: 1.5,
+            bgcolor: 'primary.main',
+            color: '#fff',
+            fontWeight: 700,
+            borderRadius: 1,
+            boxShadow: 4,
+            outline: 'none',
+            textDecoration: 'none'
+          }
+        }}
+      >
+        Skip to main content
+      </Box>
       {/* Top Application Bar */}
       <AppBar
         position="fixed"
@@ -226,9 +266,21 @@ export default function AppLayout({ children, title }) {
 
           {/* Action Icons */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* Keyboard Shortcuts Guide */}
+            <Tooltip title="Keyboard Shortcuts (F1 / ?)">
+              <IconButton
+                onClick={() => setShortcutsOpen(true)}
+                color="inherit"
+                size="medium"
+                aria-label="keyboard shortcuts"
+              >
+                <KeyboardIcon />
+              </IconButton>
+            </Tooltip>
+
             {/* Theme Toggle */}
             <Tooltip title={`Switch to ${mode === 'light' ? 'Dark' : 'Light'} Mode`}>
-              <IconButton onClick={toggleTheme} color="inherit" size="medium">
+              <IconButton onClick={toggleTheme} color="inherit" size="medium" aria-label={`Switch to ${mode === 'light' ? 'Dark' : 'Light'} Mode`}>
                 {mode === 'dark' ? <LightModeIcon sx={{ color: '#fbbf24' }} /> : <DarkModeIcon />}
               </IconButton>
             </Tooltip>
@@ -331,6 +383,8 @@ export default function AppLayout({ children, title }) {
       {/* Main Content Area */}
       <Box
         component="main"
+        id="main-content"
+        tabIndex={-1}
         sx={{
           flexGrow: 1,
           p: { xs: 2, sm: 3, md: 4 },
@@ -342,6 +396,12 @@ export default function AppLayout({ children, title }) {
       >
         {children}
       </Box>
+
+      {/* Keyboard Shortcuts Help Dialog */}
+      <KeyboardShortcutsDialog
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+      />
     </Box>
   );
 }
