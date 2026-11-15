@@ -113,6 +113,36 @@ const receiptSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  customer: {
+    name: { type: String, trim: true, maxlength: 100, default: '' },
+    phone: { type: String, trim: true, maxlength: 30, default: '' },
+    email: { type: String, trim: true, lowercase: true, default: '' },
+    loyaltyNumber: { type: String, trim: true, maxlength: 50, default: '' },
+    notes: { type: String, trim: true, maxlength: 300, default: '' }
+  },
+  payment: {
+    method: {
+      type: String,
+      enum: ['cash', 'card', 'mobile'],
+      default: 'cash'
+    },
+    cashReceived: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    changeGiven: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+    reference: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+      default: ''
+    }
+  },
   notes: {
     type: String,
     trim: true,
@@ -127,8 +157,23 @@ const receiptSchema = new mongoose.Schema({
 receiptSchema.index({ userId: 1, createdAt: -1 });
 receiptSchema.index({ userId: 1, receiptNumber: 1 }, { unique: true });
 receiptSchema.index({ userId: 1, currency: 1, status: 1 });
+receiptSchema.index({ userId: 1, 'customer.phone': 1 });
+receiptSchema.index({ userId: 1, 'customer.name': 1 });
 
 receiptSchema.pre('validate', async function() {
+  // Sync structured customer and flat legacy fields
+  if (!this.customer) this.customer = {};
+  if (this.customerName && !this.customer.name) this.customer.name = this.customerName;
+  if (!this.customerName && this.customer.name) this.customerName = this.customer.name;
+  if (this.customerPhone && !this.customer.phone) this.customer.phone = this.customerPhone;
+  if (!this.customerPhone && this.customer.phone) this.customerPhone = this.customerPhone;
+  if (this.customerEmail && !this.customer.email) this.customer.email = this.customerEmail;
+  if (!this.customerEmail && this.customer.email) this.customerEmail = this.customerEmail;
+
+  // Sync payment object and paymentMethod
+  if (!this.payment) this.payment = {};
+  if (this.paymentMethod && !this.payment.method) this.payment.method = this.paymentMethod;
+  if (this.payment.method && this.paymentMethod !== this.payment.method) this.paymentMethod = this.payment.method;
   if (!this.receiptNumber && this.userId) {
     try {
       const receiptNumberService = require('../services/receiptNumberService');
