@@ -102,12 +102,8 @@ mongoose.connection.on('error', (err) => {
 app.use('/api', require('./src/routes'));
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    mongodb: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
-  });
-});
+// Health and observability routes
+app.use('/api/health', require('./src/routes/healthRoutes'));
 
 // Central error handling middleware
 app.use(errorHandler);
