@@ -25,6 +25,26 @@ const flavourSchema = new mongoose.Schema({
     maxlength: 300,
     default: ''
   },
+  category: {
+    type: String,
+    trim: true,
+    default: 'Fresh Juice',
+    maxlength: 50
+  },
+  sku: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    default: ''
+  },
+  isAvailable: {
+    type: Boolean,
+    default: true
+  },
+  isArchived: {
+    type: Boolean,
+    default: false
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -36,5 +56,7 @@ const flavourSchema = new mongoose.Schema({
 // Compound indexes for user scoped lookups and uniqueness
 flavourSchema.index({ userId: 1, name: 1 }, { unique: true });
 flavourSchema.index({ userId: 1, isActive: 1 });
+flavourSchema.index({ userId: 1, category: 1 });
+flavourSchema.index({ userId: 1, isArchived: 1, isAvailable: 1 });
 
 module.exports = mongoose.model('Flavour', flavourSchema);

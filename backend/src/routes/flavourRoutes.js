@@ -11,6 +11,9 @@ router.use(authMiddleware);
 router.get('/', (req, res, next) => flavourController.getAll(req, res, next));
 router.post('/', validate(createFlavourSchema), (req, res, next) => flavourController.create(req, res, next));
 router.put('/:id', validate(updateFlavourSchema), (req, res, next) => flavourController.update(req, res, next));
+router.patch('/:id/archive', (req, res, next) => flavourController.archive(req, res, next));
+router.patch('/:id/restore', (req, res, next) => flavourController.restore(req, res, next));
+router.patch('/:id/toggle-availability', (req, res, next) => flavourController.toggleAvailability(req, res, next));
 router.delete('/:id', (req, res, next) => flavourController.delete(req, res, next));
 
 module.exports = router;
