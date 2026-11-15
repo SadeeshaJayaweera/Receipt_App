@@ -17,34 +17,72 @@ class ReceiptService {
     return receipt;
   }
 
-  async create(userId, { items, totalAmount, paymentMethod, customerName, notes }) {
+  async create(userId, {
+    items,
+    currency,
+    status,
+    subtotal,
+    discount,
+    taxRate,
+    taxAmount,
+    totalAmount,
+    paymentMethod,
+    customerName,
+    customerPhone,
+    customerEmail,
+    notes
+  }) {
     if (!items || !Array.isArray(items) || items.length === 0) {
       throw new BadRequestError('Receipt must contain at least one item');
     }
 
+    const calculatedSubtotal = subtotal !== undefined
+      ? subtotal
+      : items.reduce((sum, item) => sum + (item.subtotal || 0), 0);
+
+    const calculatedTotal = totalAmount !== undefined
+      ? totalAmount
+      : Math.max(0, calculatedSubtotal - (discount || 0) + (taxAmount || 0));
+
     const receipt = new Receipt({
       userId,
       items,
-      totalAmount,
+      currency: currency || 'LKR',
+      status: status || 'issued',
+      subtotal: calculatedSubtotal,
+      discount: discount || 0,
+      taxRate: taxRate || 0,
+      taxAmount: taxAmount || 0,
+      totalAmount: calculatedTotal,
       paymentMethod: paymentMethod || 'cash',
       customerName: customerName ? customerName.trim() : undefined,
+      customerPhone: customerPhone ? customerPhone.trim() : undefined,
+      customerEmail: customerEmail ? customerEmail.trim() : undefined,
       notes: notes ? notes.trim() : undefined
     });
 
     return receipt.save();
   }
 
-  async update(userId, receiptId, { items, totalAmount, paymentMethod, customerName, notes }) {
+  async update(userId, receiptId, updateData) {
     const receipt = await Receipt.findOne({ _id: receiptId, userId });
     if (!receipt) {
       throw new NotFoundError('Receipt not found');
     }
 
-    if (items) receipt.items = items;
-    if (totalAmount !== undefined) receipt.totalAmount = totalAmount;
-    if (paymentMethod) receipt.paymentMethod = paymentMethod;
-    if (customerName !== undefined) receipt.customerName = customerName;
-    if (notes !== undefined) receipt.notes = notes;
+    const allowedFields = [
+      'items', 'currency', 'status', 'subtotal', 'discount',
+      'taxRate', 'taxAmount', 'totalAmount', 'paymentMethod',
+      'customerName', 'customerPhone', 'customerEmail', 'notes'
+    ];
+
+    allowedFields.forEach((field) => {
+      if (updateData[field] !== undefined) {
+        receipt[field] = typeof updateData[field] === 'string'
+          ? updateData[field].trim()
+          : updateData[field];
+      }
+    });
 
     return receipt.save();
   }

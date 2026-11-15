@@ -76,7 +76,7 @@ app.use((req, res, next) => {
 });
 
 // MongoDB Connection (Only auto-connect if not in test environment without URI)
-if (config.NODE_ENV !== 'test' && config.MONGODB_URI) {
+if (config.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'test' && config.MONGODB_URI) {
   mongoose.connect(config.MONGODB_URI).then(() => {
     console.log('✅ MongoDB connected successfully');
     console.log(`Database: ${mongoose.connection.name}`);
@@ -91,11 +91,15 @@ if (config.NODE_ENV !== 'test' && config.MONGODB_URI) {
 
 // Connection event listeners
 mongoose.connection.on('disconnected', () => {
-  console.warn('⚠️ MongoDB disconnected');
+  if (config.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'test') {
+    console.warn('⚠️ MongoDB disconnected');
+  }
 });
 
 mongoose.connection.on('error', (err) => {
-  console.error('❌ MongoDB error:', err.message);
+  if (config.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'test') {
+    console.error('❌ MongoDB error:', err.message);
+  }
 });
 
 // Routes
@@ -112,11 +116,11 @@ app.get('/api/health', (req, res) => {
 // Central error handling middleware
 app.use(errorHandler);
 
-// Only listen if not in Vercel serverless environment
-if (config.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  const PORT = config.PORT;
+// Only listen if executed directly and not in test or Vercel serverless environment
+if (require.main === module && !process.env.VERCEL) {
+  const PORT = config.PORT || 5001;
   app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 }
 
-// Export for Vercel serverless
+// Export for Vercel serverless and testing
 module.exports = app;
