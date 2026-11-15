@@ -6,6 +6,8 @@ const compression = require('compression');
 const { config } = require('./src/config/env');
 const requestIdMiddleware = require('./src/middleware/requestId');
 const errorHandler = require('./src/middleware/errorHandler');
+const { apiLimiter, authLimiter } = require('./src/middleware/rateLimiter');
+const { sanitizeMiddleware } = require('./src/middleware/sanitize');
 
 const app = express();
 
@@ -17,41 +19,53 @@ const allowedOrigins = [
   /\.vercel\.app$/
 ].filter(Boolean);
 
-// Middleware - Order matters!
-// CORS must come before helmet for preflight requests
+// CORS configuration with strict production allowlist
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
 
-    // Check if origin matches allowed origins
     const isAllowed = allowedOrigins.some(allowed => {
-      if (allowed instanceof RegExp) {
-        return allowed.test(origin);
-      }
+      if (allowed instanceof RegExp) return allowed.test(origin);
       return allowed === origin;
     });
 
-    if (isAllowed) {
+    if (isAllowed || config.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
-      callback(null, true); // Allow all in production for now
+      callback(new Error('CORS origin denied'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id']
 }));
 
-// Helmet with relaxed settings for development
+// Helmet security headers
 app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'", ...allowedOrigins.filter(o => typeof o === 'string')]
+    }
+  },
   crossOriginResourcePolicy: { policy: "cross-origin" },
-  crossOriginOpenerPolicy: { policy: "unsafe-none" }
+  hsts: { maxAge: 31536000, includeSubDomains: true }
 }));
 
 app.use(compression());
-app.use(express.json());
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Strict request-size limits to protect against DoS
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
+
+// Input sanitization against MongoDB operator injection & prototype pollution
+app.use(sanitizeMiddleware);
+
+// Global rate limiting
+app.use('/api', apiLimiter);
 
 app.use(requestIdMiddleware);
 
