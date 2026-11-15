@@ -1,5 +1,6 @@
 const Receipt = require('../models/Receipt');
 const receiptNumberService = require('./receiptNumberService');
+const receiptValidationService = require('./receiptValidationService');
 const { calculateReceiptTotals } = require('../utils/calcEngine');
 const { BadRequestError, NotFoundError } = require('../errors/AppError');
 
@@ -30,26 +31,41 @@ class ReceiptService {
       discountValue,
       taxEnabled,
       taxRate,
-      paymentMethod,
+      paymentMethod = 'cash',
+      cashReceived,
       customerName,
       customerPhone,
       customerEmail,
       notes
     } = data;
 
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      throw new BadRequestError('Receipt must contain at least one item');
-    }
+    // Validate and merge duplicate line items
+    const normalizedItems = receiptValidationService.validateAndNormalizeItems(items);
+
+    const discountAmount = discount !== undefined ? discount : discountValue;
+    const isTaxEnabled = taxEnabled !== undefined ? taxEnabled : (Number(taxRate) > 0);
+
+    // Validate tax configuration
+    receiptValidationService.validateTax(isTaxEnabled, taxRate);
 
     // Authoritative financial calculations
     const totals = calculateReceiptTotals({
-      items,
-      discount: discount !== undefined ? discount : discountValue,
+      items: normalizedItems,
+      discount: discountAmount,
       discountType: discountType || 'fixed',
-      taxEnabled: taxEnabled !== undefined ? taxEnabled : (Number(taxRate) > 0),
+      taxEnabled: isTaxEnabled,
       taxRate: Number(taxRate) || 0,
       currency: currency || 'LKR'
     });
+
+    // Validate discount against calculated subtotal
+    receiptValidationService.validateDiscount(discountAmount, discountType, totals.subtotal);
+
+    // Validate financial upper bounds
+    receiptValidationService.validateFinancialBounds(totals.subtotal, totals.totalAmount);
+
+    // Validate payment method and cash sufficiency
+    receiptValidationService.validatePayment(paymentMethod, totals.totalAmount, cashReceived);
 
     const finalReceiptNumber = receiptNumber || await receiptNumberService.generateNextReceiptNumber(userId);
 
@@ -64,7 +80,7 @@ class ReceiptService {
       taxRate: totals.taxRate,
       taxAmount: totals.taxAmount,
       totalAmount: totals.totalAmount,
-      paymentMethod: paymentMethod || 'cash',
+      paymentMethod,
       customerName: customerName ? customerName.trim() : undefined,
       customerPhone: customerPhone ? customerPhone.trim() : undefined,
       customerEmail: customerEmail ? customerEmail.trim() : undefined,
@@ -80,19 +96,31 @@ class ReceiptService {
       throw new NotFoundError('Receipt not found');
     }
 
-    const items = updateData.items || receipt.items;
+    let items = receipt.items;
+    if (updateData.items) {
+      items = receiptValidationService.validateAndNormalizeItems(updateData.items);
+    }
+
     const discount = updateData.discount !== undefined ? updateData.discount : receipt.discount;
     const taxRate = updateData.taxRate !== undefined ? updateData.taxRate : receipt.taxRate;
     const taxEnabled = updateData.taxEnabled !== undefined ? updateData.taxEnabled : (taxRate > 0);
     const currency = updateData.currency || receipt.currency;
+    const paymentMethod = updateData.paymentMethod || receipt.paymentMethod;
+
+    receiptValidationService.validateTax(taxEnabled, taxRate);
 
     const totals = calculateReceiptTotals({
       items,
       discount,
+      discountType: updateData.discountType || 'fixed',
       taxEnabled,
       taxRate,
       currency
     });
+
+    receiptValidationService.validateDiscount(discount, updateData.discountType, totals.subtotal);
+    receiptValidationService.validateFinancialBounds(totals.subtotal, totals.totalAmount);
+    receiptValidationService.validatePayment(paymentMethod, totals.totalAmount, updateData.cashReceived);
 
     receipt.items = totals.items;
     receipt.subtotal = totals.subtotal;
@@ -101,9 +129,9 @@ class ReceiptService {
     receipt.taxAmount = totals.taxAmount;
     receipt.totalAmount = totals.totalAmount;
     receipt.currency = totals.currency;
+    receipt.paymentMethod = paymentMethod;
 
     if (updateData.status) receipt.status = updateData.status;
-    if (updateData.paymentMethod) receipt.paymentMethod = updateData.paymentMethod;
     if (updateData.customerName !== undefined) receipt.customerName = updateData.customerName.trim();
     if (updateData.customerPhone !== undefined) receipt.customerPhone = updateData.customerPhone.trim();
     if (updateData.customerEmail !== undefined) receipt.customerEmail = updateData.customerEmail.trim();
