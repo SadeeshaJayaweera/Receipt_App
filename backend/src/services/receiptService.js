@@ -1,5 +1,6 @@
 const Receipt = require('../models/Receipt');
 const receiptNumberService = require('./receiptNumberService');
+const { calculateReceiptTotals } = require('../utils/calcEngine');
 const { BadRequestError, NotFoundError } = require('../errors/AppError');
 
 class ReceiptService {
@@ -18,47 +19,51 @@ class ReceiptService {
     return receipt;
   }
 
-  async create(userId, {
-    items,
-    receiptNumber,
-    currency,
-    status,
-    subtotal,
-    discount,
-    taxRate,
-    taxAmount,
-    totalAmount,
-    paymentMethod,
-    customerName,
-    customerPhone,
-    customerEmail,
-    notes
-  }) {
+  async create(userId, data) {
+    const {
+      items,
+      receiptNumber,
+      currency,
+      status,
+      discount,
+      discountType,
+      discountValue,
+      taxEnabled,
+      taxRate,
+      paymentMethod,
+      customerName,
+      customerPhone,
+      customerEmail,
+      notes
+    } = data;
+
     if (!items || !Array.isArray(items) || items.length === 0) {
       throw new BadRequestError('Receipt must contain at least one item');
     }
 
-    const calculatedSubtotal = subtotal !== undefined
-      ? subtotal
-      : items.reduce((sum, item) => sum + (item.subtotal || 0), 0);
-
-    const calculatedTotal = totalAmount !== undefined
-      ? totalAmount
-      : Math.max(0, calculatedSubtotal - (discount || 0) + (taxAmount || 0));
+    // Authoritative financial calculations
+    const totals = calculateReceiptTotals({
+      items,
+      discount: discount !== undefined ? discount : discountValue,
+      discountType: discountType || 'fixed',
+      taxEnabled: taxEnabled !== undefined ? taxEnabled : (Number(taxRate) > 0),
+      taxRate: Number(taxRate) || 0,
+      currency: currency || 'LKR'
+    });
 
     const finalReceiptNumber = receiptNumber || await receiptNumberService.generateNextReceiptNumber(userId);
 
     const receipt = new Receipt({
       userId,
       receiptNumber: finalReceiptNumber,
-      items,
-      currency: currency || 'LKR',
+      items: totals.items,
+      currency: totals.currency,
       status: status || 'issued',
-      subtotal: calculatedSubtotal,
-      discount: discount || 0,
-      taxRate: taxRate || 0,
-      taxAmount: taxAmount || 0,
-      totalAmount: calculatedTotal,
+      subtotal: totals.subtotal,
+      discount: totals.discount,
+      taxRate: totals.taxRate,
+      taxAmount: totals.taxAmount,
+      totalAmount: totals.totalAmount,
       paymentMethod: paymentMethod || 'cash',
       customerName: customerName ? customerName.trim() : undefined,
       customerPhone: customerPhone ? customerPhone.trim() : undefined,
@@ -75,19 +80,34 @@ class ReceiptService {
       throw new NotFoundError('Receipt not found');
     }
 
-    const allowedFields = [
-      'items', 'currency', 'status', 'subtotal', 'discount',
-      'taxRate', 'taxAmount', 'totalAmount', 'paymentMethod',
-      'customerName', 'customerPhone', 'customerEmail', 'notes'
-    ];
+    const items = updateData.items || receipt.items;
+    const discount = updateData.discount !== undefined ? updateData.discount : receipt.discount;
+    const taxRate = updateData.taxRate !== undefined ? updateData.taxRate : receipt.taxRate;
+    const taxEnabled = updateData.taxEnabled !== undefined ? updateData.taxEnabled : (taxRate > 0);
+    const currency = updateData.currency || receipt.currency;
 
-    allowedFields.forEach((field) => {
-      if (updateData[field] !== undefined) {
-        receipt[field] = typeof updateData[field] === 'string'
-          ? updateData[field].trim()
-          : updateData[field];
-      }
+    const totals = calculateReceiptTotals({
+      items,
+      discount,
+      taxEnabled,
+      taxRate,
+      currency
     });
+
+    receipt.items = totals.items;
+    receipt.subtotal = totals.subtotal;
+    receipt.discount = totals.discount;
+    receipt.taxRate = totals.taxRate;
+    receipt.taxAmount = totals.taxAmount;
+    receipt.totalAmount = totals.totalAmount;
+    receipt.currency = totals.currency;
+
+    if (updateData.status) receipt.status = updateData.status;
+    if (updateData.paymentMethod) receipt.paymentMethod = updateData.paymentMethod;
+    if (updateData.customerName !== undefined) receipt.customerName = updateData.customerName.trim();
+    if (updateData.customerPhone !== undefined) receipt.customerPhone = updateData.customerPhone.trim();
+    if (updateData.customerEmail !== undefined) receipt.customerEmail = updateData.customerEmail.trim();
+    if (updateData.notes !== undefined) receipt.notes = updateData.notes.trim();
 
     return receipt.save();
   }
