@@ -5,6 +5,8 @@ const helmet = require('helmet');
 const compression = require('compression');
 const { config } = require('./src/config/env');
 const requestIdMiddleware = require('./src/middleware/requestId');
+const requestLogger = require('./src/middleware/requestLogger');
+const { logger } = require('./src/utils/logger');
 const errorHandler = require('./src/middleware/errorHandler');
 const { apiLimiter, authLimiter } = require('./src/middleware/rateLimiter');
 const { sanitizeMiddleware } = require('./src/middleware/sanitize');
@@ -68,21 +70,15 @@ app.use(sanitizeMiddleware);
 app.use('/api', apiLimiter);
 
 app.use(requestIdMiddleware);
-
-// Request logging middleware
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] [${req.id}] ${req.method} ${req.path}`);
-  next();
-});
+app.use(requestLogger);
 
 // MongoDB Connection (Only auto-connect if not in test environment without URI)
 if (config.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'test' && config.MONGODB_URI) {
   mongoose.connect(config.MONGODB_URI).then(() => {
-    console.log('✅ MongoDB connected successfully');
-    console.log(`Database: ${mongoose.connection.name}`);
+    logger.info('MongoDB connected successfully', { database: mongoose.connection.name });
   })
   .catch(err => {
-    console.error('❌ MongoDB connection error:', err.message);
+    logger.error('MongoDB connection error', { error: err.message });
     if (config.NODE_ENV === 'production') {
       process.exit(1);
     }
@@ -92,13 +88,13 @@ if (config.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'test' && config.MONG
 // Connection event listeners
 mongoose.connection.on('disconnected', () => {
   if (config.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'test') {
-    console.warn('⚠️ MongoDB disconnected');
+    logger.warn('MongoDB disconnected');
   }
 });
 
 mongoose.connection.on('error', (err) => {
   if (config.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'test') {
-    console.error('❌ MongoDB error:', err.message);
+    logger.error('MongoDB error', { error: err.message });
   }
 });
 
