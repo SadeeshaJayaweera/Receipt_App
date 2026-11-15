@@ -54,6 +54,17 @@ export default function ReceiptPreviewModal({
   const [previewMode, setPreviewMode] = useState('thermal'); // 'thermal' | 'document'
   const [copiedFeedback, setCopiedFeedback] = useState(false);
 
+  // Find latest void reason
+  const voidEntry = useMemo(() => {
+    if (!receipt || receipt.status !== 'voided') return null;
+    if (receipt.voidReason) {
+      return { reason: receipt.voidReason, at: receipt.voidedAt };
+    }
+    const history = receipt.statusHistory || [];
+    const voidHistory = [...history].reverse().find((h) => h.status === 'voided');
+    return voidHistory ? { reason: voidHistory.reason, at: voidHistory.timestamp } : null;
+  }, [receipt]);
+
   if (!receipt) return null;
 
   const currency = receipt.currency || business.currency || 'LKR';
@@ -79,16 +90,7 @@ export default function ReceiptPreviewModal({
   const isVoided = receipt.status === 'voided';
   const isDraft = receipt.status === 'draft';
 
-  // Find latest void reason
-  const voidEntry = useMemo(() => {
-    if (!isVoided) return null;
-    if (receipt.voidReason) {
-      return { reason: receipt.voidReason, at: receipt.voidedAt };
-    }
-    const history = receipt.statusHistory || [];
-    const voidHistory = [...history].reverse().find((h) => h.status === 'voided');
-    return voidHistory ? { reason: voidHistory.reason, at: voidHistory.timestamp } : null;
-  }, [isVoided, receipt]);
+
 
   const handlePrint = () => {
     printThermalReceipt(receipt, business);

@@ -59,7 +59,7 @@ export const AppThemeProvider = ({ children }) => {
     mode,
     toggleTheme,
     setMode
-  }), [mode]);
+  }), [mode, toggleTheme]);
 
   return (
     <ThemeModeContext.Provider value={contextValue}>

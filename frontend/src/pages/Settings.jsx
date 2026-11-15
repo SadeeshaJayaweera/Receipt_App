@@ -18,7 +18,6 @@ import {
   InputAdornment,
   Divider,
   Chip,
-  IconButton,
   Paper,
   useTheme
 } from '@mui/material';
@@ -28,16 +27,13 @@ import {
   AttachMoney as MoneyIcon,
   Print as PrintIcon,
   Save as SaveIcon,
-  Refresh as RefreshIcon,
-  PictureAsPdf as PdfIcon,
-  CheckCircle as CheckCircleIcon
+  PictureAsPdf as PdfIcon
 } from '@mui/icons-material';
 import useAuthStore from '../store/authStore';
 import AppLayout from '../components/AppLayout';
 import ReceiptThermalPreview from '../components/ReceiptThermalPreview';
 import { printThermalReceipt } from '../utils/thermalPrinter';
 import { downloadReceiptPdf } from '../utils/pdfGenerator';
-import { formatCurrency } from '../utils/calcEngine';
 
 const AVAILABLE_ICONS = ['🧃', '🥤', '🍹', '🍊', '🍋', '🍍', '☕', '🍉'];
 
