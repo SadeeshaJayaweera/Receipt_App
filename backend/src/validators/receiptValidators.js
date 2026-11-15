@@ -8,6 +8,21 @@ const receiptItemSchema = z.object({
   subtotal: z.coerce.number().min(0, 'Subtotal cannot be negative')
 }).strict('Unrecognized field in item');
 
+const customerSchema = z.object({
+  name: z.string().trim().max(100).optional(),
+  phone: z.string().trim().max(30).optional(),
+  email: z.string().trim().email('Invalid email address format').or(z.literal('')).optional(),
+  loyaltyNumber: z.string().trim().max(50).optional(),
+  notes: z.string().trim().max(300).optional()
+}).strict('Unrecognized field in customer object');
+
+const paymentSchema = z.object({
+  method: z.enum(['cash', 'card', 'mobile']).default('cash'),
+  cashReceived: z.coerce.number().min(0).optional(),
+  changeGiven: z.coerce.number().min(0).optional(),
+  reference: z.string().trim().max(100).optional()
+}).strict('Unrecognized field in payment object');
+
 const createReceiptSchema = z.object({
   receiptNumber: z.string().trim().min(3).max(50).optional(),
   currency: z.enum(['LKR', 'USD']).default('LKR'),
@@ -26,6 +41,8 @@ const createReceiptSchema = z.object({
   customerName: z.string().trim().max(100).optional(),
   customerPhone: z.string().trim().max(30).optional(),
   customerEmail: z.string().trim().email('Invalid email address format').or(z.literal('')).optional(),
+  customer: customerSchema.optional(),
+  payment: paymentSchema.optional(),
   notes: z.string().trim().max(500).optional()
 }).strict('Unrecognized field in receipt payload');
 
@@ -46,6 +63,8 @@ const updateReceiptSchema = z.object({
   customerName: z.string().trim().max(100).optional(),
   customerPhone: z.string().trim().max(30).optional(),
   customerEmail: z.string().trim().email('Invalid email address format').or(z.literal('')).optional(),
+  customer: customerSchema.optional(),
+  payment: paymentSchema.optional(),
   notes: z.string().trim().max(500).optional()
 }).strict('Unrecognized field in update payload');
 
