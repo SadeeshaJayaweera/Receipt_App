@@ -1,0 +1,116 @@
+name: Continuous Integration & Automated Verification
+
+on:
+  push:
+    branches: [ master, develop ]
+  pull_request:
+    branches: [ master, develop ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-test:
+    name: Backend Test Suite & Security Sanity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Run backend automated tests
+        run: |
+          cd backend
+          npm test
+        env:
+          NODE_ENV: test
+          PORT: 5001
+          MONGO_URI: mongodb://localhost:27017/test_pos
+          JWT_SECRET: ci_github_actions_test_jwt_secret_32_characters_minimum!
+          ALLOWED_ORIGINS: http://localhost:3000
+
+  frontend-test-and-build:
+    name: Frontend Test Suite & Production Bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run frontend automated tests
+        run: |
+          cd frontend
+          npm test
+
+      - name: Validate production bundle build
+        run: |
+          cd frontend
+          npm run build
+        env:
+          CI: true
+
+  docker-build-verification:
+    name: Docker Multi-Stage Build Verification
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test-and-build]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: juice-receipt-backend:ci-test
+
+      - name: Build frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: juice-receipt-frontend:ci-test
+
+  security-compliance:
+    name: Security & Secret Leak Prevention
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for uncommitted or leaked secrets in repo
+        run: |
+          echo "Verifying no live .env or secret files are committed..."
+          if find . -maxdepth 3 -name ".env" ! -path "*/.env.example" | grep -q ".env"; then
+            echo "ERROR: Unredacted .env file discovered in Git tree!"
+            exit 1
+          fi
+          echo "Secret check passed: no live .env committed."
