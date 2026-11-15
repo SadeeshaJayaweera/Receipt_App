@@ -86,6 +86,26 @@ const useReceiptStore = create((set, get) => ({
     }
   },
 
+  voidReceipt: async (id, reason) => {
+    set({ isLoading: true });
+    try {
+      const { data } = await client.post(`/receipts/${id}/void`, { reason });
+      set(state => ({
+        receipts: state.receipts.map(r => (r._id === id ? data : r)),
+        currentReceipt: state.currentReceipt?._id === id ? data : state.currentReceipt,
+        error: null
+      }));
+      return data;
+    } catch (error) {
+      console.error('Void receipt error:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to void receipt';
+      set({ error: errorMessage });
+      throw error;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
   deleteReceipt: async (id) => {
     try {
       await client.delete(`/receipts/${id}`);
