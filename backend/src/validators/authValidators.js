@@ -15,8 +15,12 @@ const loginSchema = z.object({
 
 const updateProfileSchema = z.object({
   businessName: z.string().trim().min(2, 'Business name must be at least 2 characters').max(100).optional(),
-  phone: z.string().trim().optional(),
-  address: z.string().trim().optional()
+  phone: z.string().trim().max(30).optional(),
+  address: z.string().trim().max(200).optional(),
+  defaultCurrency: z.enum(['LKR', 'USD']).optional(),
+  taxEnabled: z.boolean().optional(),
+  taxRate: z.coerce.number().min(0, 'Tax rate cannot be negative').max(100, 'Tax rate cannot exceed 100%').optional(),
+  receiptFooter: z.string().trim().max(200).optional()
 });
 
 module.exports = {

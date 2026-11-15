@@ -41,4 +41,11 @@ describe('Frontend Calc Engine Parity Tests', () => {
     expect(change.isSufficient).toBe(true);
     expect(change.change).toBe(50);
   });
+
+  it('formats currency with code and symbol formats across LKR and USD', () => {
+    expect(formatCurrency(100, 'USD')).toBe('$100.00');
+    expect(formatCurrency(100, 'LKR')).toBe('Rs. 100.00');
+    expect(formatCurrency(100, 'USD', { format: 'code' })).toBe('USD 100.00');
+    expect(formatCurrency(100, 'LKR', { format: 'code' })).toBe('LKR 100.00');
+  });
 });
