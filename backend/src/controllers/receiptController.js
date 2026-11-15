@@ -4,7 +4,7 @@ const PDFDocument = require('pdfkit');
 class ReceiptController {
   async getAll(req, res, next) {
     try {
-      const receipts = await receiptService.getAll(req.userId);
+      const receipts = await receiptService.getAll(req.userId, req.query);
       res.json(receipts);
     } catch (err) {
       next(err);
