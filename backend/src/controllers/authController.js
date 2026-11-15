@@ -48,6 +48,15 @@ class AuthController {
       next(err);
     }
   }
+
+  async logout(req, res, next) {
+    try {
+      const result = await authService.logout(req.token, req.tokenPayload);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new AuthController();
