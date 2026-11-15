@@ -81,9 +81,7 @@ mongoose.connection.on('error', (err) => {
 });
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/flavours', require('./routes/flavours'));
-app.use('/api/receipts', require('./routes/Receipt'));
+app.use('/api', require('./src/routes'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -95,10 +93,16 @@ app.get('/api/health', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.status || 500).json({
+  const statusCode = err.statusCode || err.status || 500;
+  if (statusCode >= 500) {
+    console.error(`[ERROR] ${req.method} ${req.path}:`, err.message);
+  }
+
+  res.status(statusCode).json({
+    status: `${statusCode}`.startsWith('4') ? 'fail' : 'error',
     message: err.message || 'Internal Server Error',
-    error: process.env.NODE_ENV === 'development' ? err : {}
+    ...(err.details ? { details: err.details } : {}),
+    ...(config.NODE_ENV === 'development' ? { stack: err.stack } : {})
   });
 });
 
