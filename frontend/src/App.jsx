@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppThemeProvider } from './theme/ThemeContext';
+import NetworkStatusBanner from './components/NetworkStatusBanner';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
 import Dashboard from './pages/Dashboard';
@@ -12,6 +13,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 function App() {
   return (
     <AppThemeProvider>
+      <NetworkStatusBanner />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
