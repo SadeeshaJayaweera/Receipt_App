@@ -59,11 +59,15 @@ describe('Auth Middleware Unit Tests', () => {
 
   test('accepts valid JWT, extracts userId, and calls next()', () => {
     let nextCalled = false;
+    const { config } = require('../src/config/env');
     const testUserId = '64f1a2b3c4d5e6f7a8b9c0d1';
-    const validToken = jwt.sign({ userId: testUserId }, secret, { expiresIn: '1h' });
+    const validToken = jwt.sign({ userId: testUserId }, config.JWT_SECRET, { expiresIn: '1h' });
 
     const req = { headers: { authorization: `Bearer ${validToken}` } };
-    const res = {};
+    const res = {
+      status: () => res,
+      json: () => res
+    };
     const next = () => { nextCalled = true; };
 
     authMiddleware(req, res, next);
