@@ -189,20 +189,24 @@ class ReceiptService {
     // Validate tax configuration
     receiptValidationService.validateTax(isTaxEnabled, taxRate);
 
-    // Resolve tenant default currency if not provided
+    // Resolve tenant default currency and receipt prefix if not provided
     let finalCurrency = currency;
-    if (!finalCurrency) {
-      if (mongoose.connection && mongoose.connection.readyState === 1) {
-        try {
-          const User = require('../models/User');
-          const user = await User.findById(userId).select('defaultCurrency');
+    let tenantPrefix = 'RCP';
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      try {
+        const User = require('../models/User');
+        const user = await User.findById(userId).select('defaultCurrency receiptPrefix');
+        if (!finalCurrency) {
           finalCurrency = user?.defaultCurrency || 'LKR';
-        } catch {
-          finalCurrency = 'LKR';
         }
-      } else {
-        finalCurrency = 'LKR';
+        if (user?.receiptPrefix) {
+          tenantPrefix = user.receiptPrefix;
+        }
+      } catch {
+        if (!finalCurrency) finalCurrency = 'LKR';
       }
+    } else {
+      if (!finalCurrency) finalCurrency = 'LKR';
     }
 
     // Authoritative financial calculations
@@ -237,7 +241,7 @@ class ReceiptService {
       changeGiven = changeCalc.change;
     }
 
-    const finalReceiptNumber = receiptNumber || await receiptNumberService.generateNextReceiptNumber(userId);
+    const finalReceiptNumber = receiptNumber || await receiptNumberService.generateNextReceiptNumber(userId, { prefix: tenantPrefix });
 
     // Customer normalization
     const customerObj = customerData || {};

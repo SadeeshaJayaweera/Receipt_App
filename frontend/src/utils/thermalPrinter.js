@@ -12,9 +12,13 @@ export const generateThermalReceiptHtml = (receipt, business = {}) => {
   const timeFormatted = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   const bName = (business.businessName || 'Juice Receipt App').toUpperCase();
+  const bTagline = business.tagline || '';
   const bAddress = business.address || '';
   const bPhone = business.phone ? `Tel: ${business.phone}` : '';
   const bEmail = business.email || '';
+  const bWebsite = business.website || '';
+  const showLogo = business.showLogo !== false;
+  const logoIcon = business.logoIcon || '🧃';
   const footerMsg = business.receiptFooter || 'Thank you for your business!';
 
   const customerName = receipt.customer?.name || receipt.customerName || '';
@@ -142,10 +146,13 @@ export const generateThermalReceiptHtml = (receipt, business = {}) => {
 <body>
   <div class="receipt-container">
     <div class="text-center">
+      ${showLogo && logoIcon ? `<div style="font-size: 20px; margin-bottom: 2px;">${logoIcon}</div>` : ''}
       <div class="store-name">${bName}</div>
+      ${bTagline ? `<div class="store-meta font-bold" style="font-style: italic;">${bTagline}</div>` : ''}
       ${bAddress ? `<div class="store-meta">${bAddress}</div>` : ''}
       ${bPhone ? `<div class="store-meta">${bPhone}</div>` : ''}
       ${bEmail ? `<div class="store-meta">${bEmail}</div>` : ''}
+      ${bWebsite ? `<div class="store-meta">${bWebsite}</div>` : ''}
     </div>
 
     ${receipt.status === 'voided' ? '<div class="text-center status-banner">*** VOIDED RECEIPT ***</div>' : ''}
