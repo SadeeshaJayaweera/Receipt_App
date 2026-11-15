@@ -9,6 +9,7 @@ const receiptItemSchema = z.object({
 }).strict('Unrecognized field in item');
 
 const createReceiptSchema = z.object({
+  receiptNumber: z.string().trim().min(3).max(50).optional(),
   currency: z.enum(['LKR', 'USD']).default('LKR'),
   status: z.enum(['draft', 'issued', 'voided']).default('issued'),
   items: z.array(receiptItemSchema).min(1, 'Receipt must contain at least one item'),

@@ -1,4 +1,5 @@
 const Receipt = require('../models/Receipt');
+const receiptNumberService = require('./receiptNumberService');
 const { BadRequestError, NotFoundError } = require('../errors/AppError');
 
 class ReceiptService {
@@ -19,6 +20,7 @@ class ReceiptService {
 
   async create(userId, {
     items,
+    receiptNumber,
     currency,
     status,
     subtotal,
@@ -44,8 +46,11 @@ class ReceiptService {
       ? totalAmount
       : Math.max(0, calculatedSubtotal - (discount || 0) + (taxAmount || 0));
 
+    const finalReceiptNumber = receiptNumber || await receiptNumberService.generateNextReceiptNumber(userId);
+
     const receipt = new Receipt({
       userId,
+      receiptNumber: finalReceiptNumber,
       items,
       currency: currency || 'LKR',
       status: status || 'issued',
