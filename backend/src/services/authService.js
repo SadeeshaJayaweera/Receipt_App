@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const { config } = require('../config/env');
+const tokenBlacklistService = require('./tokenBlacklistService');
 const { BadRequestError, UnauthorizedError, NotFoundError, ConflictError } = require('../errors/AppError');
 
 class AuthService {
@@ -25,9 +27,11 @@ class AuthService {
 
     await user.save();
 
-    const token = jwt.sign({ userId: user._id }, config.JWT_SECRET, {
-      expiresIn: config.JWT_EXPIRES_IN
-    });
+    const token = jwt.sign(
+      { userId: user._id, jti: crypto.randomUUID() },
+      config.JWT_SECRET,
+      { expiresIn: config.JWT_EXPIRES_IN }
+    );
 
     return {
       token,
@@ -52,9 +56,11 @@ class AuthService {
       throw new UnauthorizedError('Invalid email or password');
     }
 
-    const token = jwt.sign({ userId: user._id }, config.JWT_SECRET, {
-      expiresIn: config.JWT_EXPIRES_IN
-    });
+    const token = jwt.sign(
+      { userId: user._id, jti: crypto.randomUUID() },
+      config.JWT_SECRET,
+      { expiresIn: config.JWT_EXPIRES_IN }
+    );
 
     return {
       token,
@@ -101,6 +107,13 @@ class AuthService {
       phone: user.phone,
       address: user.address
     };
+  }
+
+  async logout(token, tokenPayload) {
+    if (token) {
+      tokenBlacklistService.revoke(token, tokenPayload?.exp);
+    }
+    return { message: 'Logged out successfully' };
   }
 }
 
