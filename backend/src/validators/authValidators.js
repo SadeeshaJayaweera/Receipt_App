@@ -20,7 +20,13 @@ const updateProfileSchema = z.object({
   defaultCurrency: z.enum(['LKR', 'USD']).optional(),
   taxEnabled: z.boolean().optional(),
   taxRate: z.coerce.number().min(0, 'Tax rate cannot be negative').max(100, 'Tax rate cannot exceed 100%').optional(),
-  receiptFooter: z.string().trim().max(200).optional()
+  receiptFooter: z.string().trim().max(200).optional(),
+  tagline: z.string().trim().max(120).optional(),
+  website: z.string().trim().max(100).optional(),
+  receiptPrefix: z.string().trim().toUpperCase().min(2).max(8).optional(),
+  showLogo: z.boolean().optional(),
+  logoIcon: z.string().trim().max(10).optional(),
+  showCustomerInfo: z.boolean().optional()
 });
 
 module.exports = {

@@ -35,10 +35,15 @@ export default function ReceiptThermalPreview({ receipt, business = {}, onPrint,
       >
         {/* Business Header */}
         <div className="text-center mb-2">
+          {business.showLogo !== false && (
+            <div className="text-2xl mb-1">{business.logoIcon || '🧃'}</div>
+          )}
           <div className="text-sm font-bold tracking-wider">{bName}</div>
+          {business.tagline && <div className="text-[10.5px] italic font-semibold text-gray-800">{business.tagline}</div>}
           {business.address && <div className="text-[10px] text-gray-700">{business.address}</div>}
           {business.phone && <div className="text-[10px] text-gray-700">Tel: {business.phone}</div>}
           {business.email && <div className="text-[10px] text-gray-700">{business.email}</div>}
+          {business.website && <div className="text-[10px] text-gray-700">{business.website}</div>}
         </div>
 
         {/* Status notice */}

@@ -73,7 +73,7 @@ class ReceiptController {
       
       let userProfile = {};
       if (User && mongoose.connection && mongoose.connection.readyState === 1) {
-        userProfile = await User.findById(req.userId).select('businessName phone address email receiptFooter defaultCurrency').lean() || {};
+        userProfile = await User.findById(req.userId).select('businessName phone address email receiptFooter defaultCurrency tagline website receiptPrefix logoIcon showLogo showCustomerInfo').lean() || {};
       }
 
       const filename = `Receipt-${receipt.receiptNumber || receipt._id}.pdf`;
