@@ -57,15 +57,19 @@ app.use((req, res, next) => {
   next();
 });
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI).then(() => {
+// MongoDB Connection (Only auto-connect if not in test environment without URI)
+if (process.env.NODE_ENV !== 'test' && process.env.MONGODB_URI) {
+  mongoose.connect(process.env.MONGODB_URI).then(() => {
     console.log('✅ MongoDB connected successfully');
     console.log(`Database: ${mongoose.connection.name}`);
   })
   .catch(err => {
     console.error('❌ MongoDB connection error:', err.message);
-    process.exit(1);
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1);
+    }
   });
+}
 
 // Connection event listeners
 mongoose.connection.on('disconnected', () => {
