@@ -4,6 +4,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const { config } = require('./src/config/env');
+const requestIdMiddleware = require('./src/middleware/requestId');
+const errorHandler = require('./src/middleware/errorHandler');
 
 const app = express();
 
@@ -51,9 +53,11 @@ app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+app.use(requestIdMiddleware);
+
 // Request logging middleware
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log(`[${new Date().toISOString()}] [${req.id}] ${req.method} ${req.path}`);
   next();
 });
 
@@ -91,20 +95,8 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  const statusCode = err.statusCode || err.status || 500;
-  if (statusCode >= 500) {
-    console.error(`[ERROR] ${req.method} ${req.path}:`, err.message);
-  }
-
-  res.status(statusCode).json({
-    status: `${statusCode}`.startsWith('4') ? 'fail' : 'error',
-    message: err.message || 'Internal Server Error',
-    ...(err.details ? { details: err.details } : {}),
-    ...(config.NODE_ENV === 'development' ? { stack: err.stack } : {})
-  });
-});
+// Central error handling middleware
+app.use(errorHandler);
 
 // Only listen if not in Vercel serverless environment
 if (config.NODE_ENV !== 'production' || !process.env.VERCEL) {
