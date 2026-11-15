@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Receipt = require('../models/Receipt');
 const receiptNumberService = require('./receiptNumberService');
 const receiptValidationService = require('./receiptValidationService');
@@ -188,6 +189,22 @@ class ReceiptService {
     // Validate tax configuration
     receiptValidationService.validateTax(isTaxEnabled, taxRate);
 
+    // Resolve tenant default currency if not provided
+    let finalCurrency = currency;
+    if (!finalCurrency) {
+      if (mongoose.connection && mongoose.connection.readyState === 1) {
+        try {
+          const User = require('../models/User');
+          const user = await User.findById(userId).select('defaultCurrency');
+          finalCurrency = user?.defaultCurrency || 'LKR';
+        } catch {
+          finalCurrency = 'LKR';
+        }
+      } else {
+        finalCurrency = 'LKR';
+      }
+    }
+
     // Authoritative financial calculations
     const totals = calculateReceiptTotals({
       items: normalizedItems,
@@ -195,7 +212,7 @@ class ReceiptService {
       discountType: discountType || 'fixed',
       taxEnabled: isTaxEnabled,
       taxRate: Number(taxRate) || 0,
-      currency: currency || 'LKR'
+      currency: finalCurrency
     });
 
     // Validate discount against calculated subtotal

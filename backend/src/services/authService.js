@@ -83,20 +83,40 @@ class AuthService {
       id: user._id,
       businessName: user.businessName,
       email: user.email,
-      phone: user.phone,
-      address: user.address
+      phone: user.phone || '',
+      address: user.address || '',
+      defaultCurrency: user.defaultCurrency || 'LKR',
+      taxEnabled: Boolean(user.taxEnabled),
+      taxRate: user.taxRate || 0,
+      receiptFooter: user.receiptFooter || 'Thank you for your business!'
     };
   }
 
-  async updateProfile(userId, { businessName, phone, address }) {
+  async updateProfile(userId, updateData) {
     const user = await User.findById(userId);
     if (!user) {
       throw new NotFoundError('User not found');
     }
 
-    if (businessName !== undefined) user.businessName = businessName.trim();
-    if (phone !== undefined) user.phone = phone ? phone.trim() : '';
-    if (address !== undefined) user.address = address ? address.trim() : '';
+    if (updateData.businessName !== undefined) user.businessName = updateData.businessName.trim();
+    if (updateData.phone !== undefined) user.phone = updateData.phone ? updateData.phone.trim() : '';
+    if (updateData.address !== undefined) user.address = updateData.address ? updateData.address.trim() : '';
+    if (updateData.defaultCurrency !== undefined) {
+      const cur = updateData.defaultCurrency.toUpperCase().trim();
+      if (!['LKR', 'USD'].includes(cur)) {
+        throw new BadRequestError('Invalid currency. Supported currencies: LKR, USD');
+      }
+      user.defaultCurrency = cur;
+    }
+    if (updateData.taxEnabled !== undefined) user.taxEnabled = Boolean(updateData.taxEnabled);
+    if (updateData.taxRate !== undefined) {
+      const rate = Number(updateData.taxRate);
+      if (isNaN(rate) || rate < 0 || rate > 100) {
+        throw new BadRequestError('Tax rate must be between 0% and 100%');
+      }
+      user.taxRate = rate;
+    }
+    if (updateData.receiptFooter !== undefined) user.receiptFooter = updateData.receiptFooter.trim();
 
     await user.save();
 
@@ -105,7 +125,11 @@ class AuthService {
       businessName: user.businessName,
       email: user.email,
       phone: user.phone,
-      address: user.address
+      address: user.address,
+      defaultCurrency: user.defaultCurrency,
+      taxEnabled: user.taxEnabled,
+      taxRate: user.taxRate,
+      receiptFooter: user.receiptFooter
     };
   }
 

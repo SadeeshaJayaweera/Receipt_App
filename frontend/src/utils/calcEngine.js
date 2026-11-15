@@ -107,14 +107,45 @@ export function calculateChange(totalAmount, cashReceived) {
   };
 }
 
-export function formatCurrency(amount, currency = 'LKR') {
+export const SUPPORTED_CURRENCIES = ['LKR', 'USD'];
+
+export function isValidCurrency(code) {
+  if (!code || typeof code !== 'string') return false;
+  return SUPPORTED_CURRENCIES.includes(code.toUpperCase().trim());
+}
+
+export function getCurrencySymbol(currency = 'LKR') {
+  const code = (currency || 'LKR').toUpperCase().trim();
+  if (code === 'USD') return '$';
+  return 'Rs.';
+}
+
+export function assertSameCurrency(currencyA, currencyB) {
+  const a = (currencyA || 'LKR').toUpperCase().trim();
+  const b = (currencyB || 'LKR').toUpperCase().trim();
+  if (a !== b) {
+    throw new Error(`Cannot perform financial calculation across different currencies (${a} and ${b}) without conversion.`);
+  }
+}
+
+export function formatCurrency(amount, currency = 'LKR', options = {}) {
+  const code = (currency || 'LKR').toUpperCase().trim();
   const numericAmount = round(Number(amount) || 0);
   const formattedNumber = numericAmount.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
 
-  if (currency === 'USD') {
+  const symbol = getCurrencySymbol(code);
+
+  if (options.format === 'code') {
+    return `${code} ${formattedNumber}`;
+  }
+  if (options.format === 'both') {
+    return `${code} ${symbol}${code === 'USD' ? '' : ' '}${formattedNumber}`;
+  }
+
+  if (code === 'USD') {
     return `$${formattedNumber}`;
   }
   return `Rs. ${formattedNumber}`;
