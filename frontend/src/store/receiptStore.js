@@ -4,17 +4,33 @@ import client from '../api/client';
 const useReceiptStore = create((set, get) => ({
   receipts: [],
   currentReceipt: null,
+  pagination: {
+    total: 0,
+    page: 1,
+    limit: 20,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPrevPage: false
+  },
   isLoading: false,
   error: null,
 
-  fetchReceipts: async () => {
+  fetchReceipts: async (params = {}) => {
     set({ isLoading: true });
     try {
-      const { data } = await client.get('/receipts');
-      // Handle both array and object response formats
+      const { data } = await client.get('/receipts', { params });
+      // Handle both array and object response formats with pagination
       const receiptsArray = Array.isArray(data) ? data : (data.receipts || []);
-      set({ receipts: receiptsArray, error: null });
-      return receiptsArray;
+      const pagination = data.pagination || {
+        total: receiptsArray.length,
+        page: 1,
+        limit: receiptsArray.length,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPrevPage: false
+      };
+      set({ receipts: receiptsArray, pagination, error: null });
+      return { receipts: receiptsArray, pagination };
     } catch (error) {
       console.error('Fetch receipts error:', error);
       set({ error: error.response?.data?.message || 'Failed to fetch receipts', receipts: [] });
