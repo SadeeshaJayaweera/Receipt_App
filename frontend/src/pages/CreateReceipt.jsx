@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { jsPDF } from 'jspdf';
+import { downloadReceiptPdf } from '../utils/pdfGenerator';
 import useFlavourStore from '../store/flavourStore';
 import useReceiptStore from '../store/receiptStore';
 import useAuthStore from '../store/authStore';
@@ -224,150 +224,21 @@ export default function CreateReceipt() {
   };
 
   const handleDownloadPDF = async () => {
-    const currentTime = new Date();
-
     try {
-      // Create PDF with receipt paper dimensions (80mm width)
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: [80, 200] // Will be trimmed later
-      });
-
-      const pageWidth = 80;
-      let y = 10;
-      const leftMargin = 5;
-      const rightMargin = pageWidth - 5;
-
-      // Helper functions
-      const centerText = (text, yPos, fontSize = 10) => {
-        pdf.setFontSize(fontSize);
-        const textWidth = pdf.getTextWidth(text);
-        pdf.text(text, (pageWidth - textWidth) / 2, yPos);
+      const receiptToExport = createdReceipt || {
+        receiptNumber: 'NEW',
+        createdAt: receiptDate || new Date().toISOString(),
+        currency: currency || user?.defaultCurrency || 'LKR',
+        customer: { name: customerName },
+        customerName,
+        items,
+        pricing: { subtotal: totalAmount, discount: 0, tax: 0, grandTotal: totalAmount },
+        totalAmount,
+        payment: { method: paymentMethod },
+        paymentMethod,
+        notes
       };
-
-      const leftRightText = (leftText, rightText, yPos, fontSize = 9) => {
-        pdf.setFontSize(fontSize);
-        pdf.text(leftText, leftMargin, yPos);
-        const rightWidth = pdf.getTextWidth(rightText);
-        pdf.text(rightText, rightMargin - rightWidth, yPos);
-      };
-
-      const drawDashedLine = (yPos) => {
-        pdf.setLineDashPattern([1, 1], 0);
-        pdf.line(leftMargin, yPos, rightMargin, yPos);
-        pdf.setLineDashPattern([], 0);
-      };
-
-      const drawSolidLine = (yPos, lineWidth = 0.3) => {
-        pdf.setLineWidth(lineWidth);
-        pdf.line(leftMargin, yPos, rightMargin, yPos);
-        pdf.setLineWidth(0.1);
-      };
-
-      // Store Header
-      pdf.setFont('helvetica', 'bold');
-      centerText('FRESH JUICE', y, 14);
-      y += 5;
-
-      pdf.setFont('helvetica', 'normal');
-      centerText(user?.businessName || 'Juice Store', y, 10);
-      y += 4;
-      centerText(`Tel: ${user?.phone || 'N/A'}`, y, 9);
-      y += 4;
-      if (user?.address) {
-        centerText(user.address, y, 8);
-        y += 4;
-      }
-
-      y += 2;
-      drawDashedLine(y);
-      y += 5;
-
-      // Receipt Info
-      pdf.setFontSize(9);
-      leftRightText('Receipt #:', createdReceipt?.receiptNumber || 'NEW', y);
-      y += 4;
-      leftRightText('Date:', new Date(receiptDate).toLocaleDateString(), y);
-      y += 4;
-      leftRightText('Time:', currentTime.toLocaleTimeString(), y);
-      y += 4;
-      if (customerName) {
-        leftRightText('Customer:', customerName, y);
-        y += 4;
-      }
-
-      y += 1;
-      drawDashedLine(y);
-      y += 4;
-
-      // Items Header
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8);
-      pdf.text('ITEM', leftMargin, y);
-      pdf.text('QTY', 50, y);
-      const amtHeader = 'AMOUNT';
-      pdf.text(amtHeader, rightMargin - pdf.getTextWidth(amtHeader), y);
-      y += 2;
-      drawSolidLine(y);
-      y += 4;
-
-      // Items
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(9);
-      items.forEach(item => {
-        const itemName = item.flavourName.length > 20 ? item.flavourName.substring(0, 20) + '...' : item.flavourName;
-        pdf.text(itemName, leftMargin, y);
-        pdf.text(item.quantity.toString(), 52, y);
-        const priceText = formatCurrency(item.subtotal);
-        pdf.text(priceText, rightMargin - pdf.getTextWidth(priceText), y);
-        y += 5;
-      });
-
-      y += 1;
-      drawDashedLine(y);
-      y += 5;
-
-      // Totals
-      leftRightText('Subtotal:', formatCurrency(totalAmount), y);
-      y += 4;
-      leftRightText('Tax (0%):', formatCurrency(0), y);
-      y += 3;
-
-      drawSolidLine(y, 0.5);
-      y += 5;
-
-      // Grand Total
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(12);
-      leftRightText('TOTAL:', formatCurrency(totalAmount), y, 12);
-      y += 4;
-      drawSolidLine(y, 0.5);
-      y += 5;
-
-      // Payment Method
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(9);
-      leftRightText('Payment:', paymentMethod.toUpperCase(), y);
-      y += 3;
-
-      drawDashedLine(y);
-      y += 6;
-
-      // Footer
-      pdf.setFont('helvetica', 'bold');
-      centerText('*** THANK YOU ***', y, 11);
-      y += 5;
-      pdf.setFont('helvetica', 'normal');
-      centerText('Please come again!', y, 9);
-      y += 8;
-      pdf.setFontSize(7);
-      centerText('Powered by Juice Receipt App', y, 7);
-
-      // Save the PDF
-      const fileName = `receipt-${createdReceipt?.receiptNumber || 'draft'}-${new Date().toISOString().split('T')[0]}.pdf`;
-      pdf.save(fileName);
-
+      downloadReceiptPdf(receiptToExport, user || {});
     } catch (error) {
       console.error('Failed to generate PDF:', error);
       alert('Failed to generate PDF. Please try again.');
