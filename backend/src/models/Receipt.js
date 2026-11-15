@@ -58,6 +58,29 @@ const receiptSchema = new mongoose.Schema({
     default: 'issued',
     required: true
   },
+  voidedAt: {
+    type: Date,
+    default: null
+  },
+  voidReason: {
+    type: String,
+    trim: true,
+    maxlength: 300,
+    default: ''
+  },
+  voidedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  statusHistory: [{
+    _id: false,
+    fromStatus: { type: String, required: true },
+    toStatus: { type: String, required: true },
+    changedAt: { type: Date, default: Date.now },
+    reason: { type: String, trim: true, default: '' },
+    changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  }],
   items: {
     type: [receiptItemSchema],
     required: [true, 'Receipt must contain at least one item'],
