@@ -51,6 +51,36 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: 'Thank you for your business!'
+  },
+  tagline: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  website: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  receiptPrefix: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    default: 'RCP',
+    maxlength: 8
+  },
+  showLogo: {
+    type: Boolean,
+    default: true
+  },
+  logoIcon: {
+    type: String,
+    trim: true,
+    default: '🧃'
+  },
+  showCustomerInfo: {
+    type: Boolean,
+    default: true
   }
 }, {
   timestamps: true

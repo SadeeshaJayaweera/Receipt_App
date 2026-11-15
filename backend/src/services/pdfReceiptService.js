@@ -4,9 +4,11 @@ const { formatCurrency } = require('../utils/calcEngine');
 class PdfReceiptService {
   calculateReceiptHeight(receipt, businessProfile = {}) {
     let height = 150; // base margins and business header
+    if (businessProfile.tagline) height += 12;
     if (businessProfile.phone) height += 12;
     if (businessProfile.address) height += 14;
     if (businessProfile.email) height += 12;
+    if (businessProfile.website) height += 12;
 
     height += 55; // receipt number, date, time
     if (receipt.customer?.name || receipt.customerName) height += 12;
@@ -67,6 +69,9 @@ class PdfReceiptService {
     doc.font('Helvetica-Bold').fontSize(11).text(bName, left, doc.y, { align: 'center', width: contentWidth });
     
     doc.font('Helvetica').fontSize(7.5);
+    if (businessProfile.tagline) {
+      doc.text(businessProfile.tagline, left, doc.y, { align: 'center', width: contentWidth });
+    }
     if (businessProfile.address) {
       doc.text(businessProfile.address, left, doc.y, { align: 'center', width: contentWidth });
     }
@@ -75,6 +80,9 @@ class PdfReceiptService {
     }
     if (businessProfile.email) {
       doc.text(businessProfile.email, left, doc.y, { align: 'center', width: contentWidth });
+    }
+    if (businessProfile.website) {
+      doc.text(businessProfile.website, left, doc.y, { align: 'center', width: contentWidth });
     }
 
     // Status Banner if voided or draft

@@ -88,7 +88,13 @@ class AuthService {
       defaultCurrency: user.defaultCurrency || 'LKR',
       taxEnabled: Boolean(user.taxEnabled),
       taxRate: user.taxRate || 0,
-      receiptFooter: user.receiptFooter || 'Thank you for your business!'
+      receiptFooter: user.receiptFooter || 'Thank you for your business!',
+      tagline: user.tagline || '',
+      website: user.website || '',
+      receiptPrefix: user.receiptPrefix || 'RCP',
+      showLogo: user.showLogo !== undefined ? Boolean(user.showLogo) : true,
+      logoIcon: user.logoIcon || '🧃',
+      showCustomerInfo: user.showCustomerInfo !== undefined ? Boolean(user.showCustomerInfo) : true
     };
   }
 
@@ -117,6 +123,12 @@ class AuthService {
       user.taxRate = rate;
     }
     if (updateData.receiptFooter !== undefined) user.receiptFooter = updateData.receiptFooter.trim();
+    if (updateData.tagline !== undefined) user.tagline = updateData.tagline.trim();
+    if (updateData.website !== undefined) user.website = updateData.website.trim();
+    if (updateData.receiptPrefix !== undefined) user.receiptPrefix = updateData.receiptPrefix.toUpperCase().trim();
+    if (updateData.showLogo !== undefined) user.showLogo = Boolean(updateData.showLogo);
+    if (updateData.logoIcon !== undefined) user.logoIcon = updateData.logoIcon.trim();
+    if (updateData.showCustomerInfo !== undefined) user.showCustomerInfo = Boolean(updateData.showCustomerInfo);
 
     await user.save();
 
@@ -129,7 +141,13 @@ class AuthService {
       defaultCurrency: user.defaultCurrency,
       taxEnabled: user.taxEnabled,
       taxRate: user.taxRate,
-      receiptFooter: user.receiptFooter
+      receiptFooter: user.receiptFooter,
+      tagline: user.tagline,
+      website: user.website,
+      receiptPrefix: user.receiptPrefix,
+      showLogo: user.showLogo,
+      logoIcon: user.logoIcon,
+      showCustomerInfo: user.showCustomerInfo
     };
   }
 
