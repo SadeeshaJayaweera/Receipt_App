@@ -130,8 +130,14 @@ receiptSchema.index({ userId: 1, currency: 1, status: 1 });
 
 receiptSchema.pre('validate', async function() {
   if (!this.receiptNumber && this.userId) {
-    const count = await this.constructor.countDocuments({ userId: this.userId });
-    this.receiptNumber = `RCP-${this.userId.toString().slice(-4)}-${Date.now()}-${count + 1}`;
+    try {
+      const receiptNumberService = require('../services/receiptNumberService');
+      this.receiptNumber = await receiptNumberService.generateNextReceiptNumber(this.userId);
+    } catch {
+      // Fallback in case of mock environment without database
+      const fallbackPeriod = new Date().toISOString().slice(0, 7).replace('-', '');
+      this.receiptNumber = `RCP-${fallbackPeriod}-0001`;
+    }
   }
   if (this.subtotal === undefined && this.items && this.items.length > 0) {
     this.subtotal = this.items.reduce((sum, item) => sum + (item.subtotal || 0), 0);
