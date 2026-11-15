@@ -1,188 +1,629 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Button,
+  IconButton,
+  TextField,
+  InputAdornment,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  Chip,
+  Tooltip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  Paper,
+  Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText,
+  Alert,
+  Skeleton,
+  Stack,
+  useTheme,
+  alpha
+} from '@mui/material';
+import {
+  ReceiptLong as ReceiptIcon,
+  Search as SearchIcon,
+  VisibilityOutlined as ViewIcon,
+  Print as PrintIcon,
+  PictureAsPdf as PdfIcon,
+  Block as VoidIcon,
+  DeleteOutlined as DeleteIcon,
+  Refresh as RefreshIcon,
+  Add as AddIcon,
+  CheckCircle as IssuedIcon,
+  Warning as DraftIcon,
+  Clear as ClearIcon
+} from '@mui/icons-material';
+import { format } from 'date-fns';
+
+import AppLayout from '../components/AppLayout';
+import ReceiptPreviewModal from '../components/ReceiptPreviewModal';
 import useReceiptStore from '../store/receiptStore';
 import useAuthStore from '../store/authStore';
-import Navbar from '../components/Navbar';
-import { format } from 'date-fns';
-import { downloadReceiptPdf } from '../utils/pdfGenerator';
+import { formatCurrency } from '../utils/calcEngine';
 import { printThermalReceipt } from '../utils/thermalPrinter';
-import ReceiptThermalPreview from '../components/ReceiptThermalPreview';
+import { downloadReceiptPdf } from '../utils/pdfGenerator';
 
 export default function Receipts() {
-  const { receipts, fetchReceipts, deleteReceipt, isLoading, error } = useReceiptStore();
-  const { user } = useAuthStore();
+  const theme = useTheme();
+  const user = useAuthStore((state) => state.user);
+  const userCurrency = user?.currency || 'LKR';
+
+  const {
+    receipts,
+    pagination,
+    fetchReceipts,
+    voidReceipt,
+    deleteReceipt,
+    isLoading,
+    error: storeError
+  } = useReceiptStore();
+
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentFilter, setPaymentFilter] = useState('all');
+
+  // Pagination
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // Modal & Dialog state
   const [selectedReceipt, setSelectedReceipt] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
+  const [receiptToVoid, setReceiptToVoid] = useState(null);
+  const [voidReason, setVoidReason] = useState('');
+  const [voidError, setVoidError] = useState(null);
+  const [actionFeedback, setActionFeedback] = useState(null);
+
+  const loadData = useCallback(() => {
+    const params = {
+      page: page + 1,
+      limit: rowsPerPage,
+      sort: '-createdAt'
+    };
+    if (searchTerm.trim()) params.search = searchTerm.trim();
+    if (statusFilter !== 'all') params.status = statusFilter;
+    if (paymentFilter !== 'all') params.paymentMethod = paymentFilter;
+
+    fetchReceipts(params);
+  }, [page, rowsPerPage, searchTerm, statusFilter, paymentFilter, fetchReceipts]);
 
   useEffect(() => {
-    fetchReceipts();
-  }, [fetchReceipts]);
+    loadData();
+  }, [loadData]);
 
-  const handleDelete = async (id) => {
-    try {
-      await deleteReceipt(id);
-      setDeleteConfirm(null);
-    } catch (err) {
-      alert('Failed to delete receipt');
-    }
+  // Status Summary Stats
+  const stats = useMemo(() => {
+    const list = receipts || [];
+    const issued = list.filter((r) => r.status === 'issued').length;
+    const draft = list.filter((r) => r.status === 'draft').length;
+    const voided = list.filter((r) => r.status === 'voided').length;
+    return {
+      total: pagination?.total ?? list.length,
+      issued,
+      draft,
+      voided
+    };
+  }, [receipts, pagination?.total]);
+
+  // Pagination Handlers
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
   };
 
-  const formatCurrency = (amount) => {
-    return `Rs. ${amount.toFixed(2)}`;
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setPaymentFilter('all');
+    setPage(0);
+  };
+
+  // Preview Handler
+  const handleOpenPreview = (receipt) => {
+    setSelectedReceipt(receipt);
+    setPreviewOpen(true);
+  };
+
+  // Void Handler
+  const handleOpenVoidDialog = (receipt) => {
+    setReceiptToVoid(receipt);
+    setVoidReason('');
+    setVoidError(null);
+    setVoidDialogOpen(true);
+  };
+
+  const handleConfirmVoid = async () => {
+    if (!receiptToVoid) return;
+    if (!voidReason.trim() || voidReason.trim().length < 3) {
+      setVoidError('Please provide a descriptive reason for voiding this receipt (minimum 3 characters).');
+      return;
+    }
+
+    try {
+      await voidReceipt(receiptToVoid._id, voidReason.trim());
+      setActionFeedback(`Successfully voided receipt ${receiptToVoid.receiptNumber}`);
+      setVoidDialogOpen(false);
+      setReceiptToVoid(null);
+      loadData();
+    } catch (err) {
+      setVoidError(err.response?.data?.message || err.message || 'Failed to void receipt');
+    }
   };
 
   const handlePrint = (receipt) => {
     printThermalReceipt(receipt, user || {});
   };
 
-  const handleDownloadPDF = (receipt) => {
-    try {
-      downloadReceiptPdf(receipt, user || {});
-    } catch (error) {
-      console.error('Failed to generate PDF:', error);
-      alert('Failed to generate PDF');
+  const handleDownloadPdf = (receipt) => {
+    downloadReceiptPdf(receipt, user || {});
+  };
+
+  const renderStatusChip = (status) => {
+    switch (status) {
+      case 'issued':
+        return <Chip icon={<IssuedIcon />} label="Issued" size="small" color="success" variant="outlined" />;
+      case 'draft':
+        return <Chip icon={<DraftIcon />} label="Draft" size="small" color="warning" variant="outlined" />;
+      case 'voided':
+        return <Chip icon={<VoidIcon />} label="Voided" size="small" color="error" variant="outlined" />;
+      default:
+        return <Chip label={status || 'Unknown'} size="small" variant="outlined" />;
     }
   };
 
-  // Modal Component
-  const ReceiptModal = ({ receipt, onClose }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center z-10">
-          <h2 className="text-xl font-bold">Receipt Preview (80mm)</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
-        </div>
-        <div className="p-4 bg-gray-50 flex justify-center">
-          <ReceiptThermalPreview
-            receipt={receipt}
-            business={user || {}}
-            onPrint={handlePrint}
-            onDownloadPdf={handleDownloadPDF}
-          />
-        </div>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
-      <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold">📋 Receipt History</h1>
-          <span className="text-sm text-gray-600">{receipts.length} receipt(s)</span>
-        </div>
+    <AppLayout title="Receipt History & Audit">
+      <Box sx={{ maxWidth: 1400, mx: 'auto', pb: 6 }}>
+        {/* Header Section */}
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            gap: 2,
+            mb: 3
+          }}
+        >
+          <Box>
+            <Typography variant="h4" component="h1" fontWeight={700} gutterBottom>
+              Receipt History & Audit Log 📋
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Search, filter, view, print, and audit customer transactions across all tender types.
+            </Typography>
+          </Box>
 
-        {error && <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-4">{error}</div>}
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Tooltip title="Refresh receipts list">
+              <IconButton
+                onClick={loadData}
+                disabled={isLoading}
+                color="primary"
+                aria-label="refresh receipts"
+                sx={{
+                  bgcolor: 'background.paper',
+                  border: `1px solid ${theme.palette.divider}`
+                }}
+              >
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
 
+            <Button
+              variant="contained"
+              color="primary"
+              component={Link}
+              to="/create-receipt"
+              startIcon={<AddIcon />}
+              sx={{ fontWeight: 600, px: 2.5, py: 1 }}
+            >
+              New Receipt
+            </Button>
+          </Stack>
+        </Box>
+
+        {/* Action Feedback Banner */}
+        {actionFeedback && (
+          <Alert severity="success" onClose={() => setActionFeedback(null)} sx={{ mb: 3 }}>
+            {actionFeedback}
+          </Alert>
+        )}
+
+        {/* Global Error Banner */}
+        {storeError && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {storeError}
+          </Alert>
+        )}
+
+        {/* Quick Summary KPI Cards */}
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <Card sx={{ p: 2, textAlign: 'center', borderLeft: `4px solid ${theme.palette.primary.main}` }}>
+              <Typography variant="h5" fontWeight={700}>
+                {isLoading ? <Skeleton width={50} sx={{ mx: 'auto' }} /> : stats.total}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase' }}>
+                Total Records
+              </Typography>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <Card sx={{ p: 2, textAlign: 'center', borderLeft: `4px solid ${theme.palette.success.main}` }}>
+              <Typography variant="h5" fontWeight={700} color="success.main">
+                {isLoading ? <Skeleton width={50} sx={{ mx: 'auto' }} /> : stats.issued}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase' }}>
+                Issued Receipts
+              </Typography>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <Card sx={{ p: 2, textAlign: 'center', borderLeft: `4px solid ${theme.palette.warning.main}` }}>
+              <Typography variant="h5" fontWeight={700} color="warning.main">
+                {isLoading ? <Skeleton width={50} sx={{ mx: 'auto' }} /> : stats.draft}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase' }}>
+                Draft Tickets
+              </Typography>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 6, sm: 3 }}>
+            <Card sx={{ p: 2, textAlign: 'center', borderLeft: `4px solid ${theme.palette.error.main}` }}>
+              <Typography variant="h5" fontWeight={700} color="error.main">
+                {isLoading ? <Skeleton width={50} sx={{ mx: 'auto' }} /> : stats.voided}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase' }}>
+                Voided Sales
+              </Typography>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Filter and Search Toolbar */}
+        <Card sx={{ mb: 3, p: 2 }}>
+          <Grid container spacing={2} alignItems="center">
+            {/* Search Input */}
+            <Grid size={{ xs: 12, md: 5 }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search by receipt #, customer name, phone, item..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setPage(0);
+                }}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon color="action" />
+                      </InputAdornment>
+                    )
+                  }
+                }}
+              />
+            </Grid>
+
+            {/* Status Filter */}
+            <Grid size={{ xs: 6, sm: 4, md: 2.5 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="status-filter-label">Status</InputLabel>
+                <Select
+                  labelId="status-filter-label"
+                  label="Status"
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setPage(0);
+                  }}
+                >
+                  <MenuItem value="all">All Statuses</MenuItem>
+                  <MenuItem value="issued">Issued Only</MenuItem>
+                  <MenuItem value="draft">Drafts Only</MenuItem>
+                  <MenuItem value="voided">Voided Only</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Payment Method Filter */}
+            <Grid size={{ xs: 6, sm: 4, md: 2.5 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="payment-filter-label">Payment Method</InputLabel>
+                <Select
+                  labelId="payment-filter-label"
+                  label="Payment Method"
+                  value={paymentFilter}
+                  onChange={(e) => {
+                    setPaymentFilter(e.target.value);
+                    setPage(0);
+                  }}
+                >
+                  <MenuItem value="all">All Methods</MenuItem>
+                  <MenuItem value="cash">Cash</MenuItem>
+                  <MenuItem value="card">Card</MenuItem>
+                  <MenuItem value="mobile">Mobile</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Reset Filters */}
+            <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+              <Button
+                fullWidth
+                size="small"
+                variant="outlined"
+                color="inherit"
+                startIcon={<ClearIcon />}
+                onClick={handleResetFilters}
+              >
+                Reset
+              </Button>
+            </Grid>
+          </Grid>
+        </Card>
+
+        {/* Receipts Data Table */}
         {isLoading ? (
-          <div className="text-center py-12">
-            <div className="text-4xl mb-4 animate-pulse">⏳</div>
-            <p className="text-gray-600">Loading receipts...</p>
-          </div>
+          <Stack spacing={1.5}>
+            <Skeleton variant="rectangular" height={52} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" height={52} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" height={52} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rectangular" height={52} sx={{ borderRadius: 1 }} />
+          </Stack>
         ) : receipts.length === 0 ? (
-          <div className="text-center py-12 card">
-            <div className="text-6xl mb-4">📭</div>
-            <h2 className="text-xl font-bold text-gray-700 mb-2">No Receipts Yet</h2>
-            <p className="text-gray-500 mb-4">Start creating receipts to see them here</p>
-            <a href="/create-receipt" className="btn-primary inline-block">Create Your First Receipt</a>
-          </div>
+          <Card sx={{ p: 6, textAlign: 'center', bgcolor: alpha(theme.palette.action.hover, 0.05) }}>
+            <ReceiptIcon sx={{ fontSize: 64, color: 'text.secondary', opacity: 0.4, mb: 2 }} />
+            <Typography variant="h6" fontWeight={700} gutterBottom>
+              {searchTerm || statusFilter !== 'all' || paymentFilter !== 'all'
+                ? 'No receipts match your search filters'
+                : 'No Receipts Recorded Yet'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              {searchTerm || statusFilter !== 'all' || paymentFilter !== 'all'
+                ? 'Try resetting your search query or status filters.'
+                : 'Ring up your first customer order at the POS terminal.'}
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              component={Link}
+              to="/create-receipt"
+              startIcon={<AddIcon />}
+            >
+              Create New Receipt
+            </Button>
+          </Card>
         ) : (
-          <>
-            {/* Desktop Table */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full bg-white rounded-lg shadow">
-                <thead className="bg-primary text-white">
-                  <tr>
-                    <th className="p-3 text-left rounded-tl-lg">Receipt #</th>
-                    <th className="p-3 text-left">Date</th>
-                    <th className="p-3 text-left">Customer</th>
-                    <th className="p-3 text-center">Items</th>
-                    <th className="p-3 text-right">Total</th>
-                    <th className="p-3 text-center">Payment</th>
-                    <th className="p-3 text-center rounded-tr-lg">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {receipts.map((receipt, i) => (
-                    <tr key={receipt._id} className={`border-b hover:bg-gray-50 cursor-pointer ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`} onClick={() => setSelectedReceipt(receipt)}>
-                      <td className="p-3 font-mono font-semibold text-primary">{receipt.receiptNumber}</td>
-                      <td className="p-3">
-                        <div>{format(new Date(receipt.createdAt), 'dd MMM yyyy')}</div>
-                        <div className="text-xs text-gray-500">{format(new Date(receipt.createdAt), 'hh:mm a')}</div>
-                      </td>
-                      <td className="p-3">{receipt.customerName || <span className="text-gray-400">Walk-in</span>}</td>
-                      <td className="p-3 text-center"><span className="bg-gray-100 px-2 py-1 rounded-full text-sm">{receipt.items.length}</span></td>
-                      <td className="p-3 text-right font-bold text-lg">Rs. {receipt.totalAmount.toFixed(2)}</td>
-                      <td className="p-3 text-center">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${receipt.paymentMethod === 'cash' ? 'bg-green-100 text-green-700' : receipt.paymentMethod === 'card' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                          {receipt.paymentMethod}
-                        </span>
-                      </td>
-                      <td className="p-3" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-center gap-1">
-                          <button onClick={() => setSelectedReceipt(receipt)} className="p-2 hover:bg-gray-200 rounded" title="View">👁️</button>
-                          <button onClick={() => handlePrint(receipt)} className="p-2 hover:bg-gray-200 rounded" title="Print">🖨️</button>
-                          <button onClick={() => handleDownloadPDF(receipt)} className="p-2 hover:bg-gray-200 rounded" title="PDF">📄</button>
-                          <button onClick={() => setDeleteConfirm(receipt._id)} className="p-2 hover:bg-red-100 rounded text-red-500" title="Delete">🗑️</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <TableContainer component={Paper} elevation={0} sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 2 }}>
+            <Table aria-label="receipt history table">
+              <TableHead sx={{ bgcolor: alpha(theme.palette.action.hover, 0.5) }}>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Receipt #</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Date & Time</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Customer</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 600 }}>Items</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Payment</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>Total</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {receipts.map((receipt) => {
+                  const dateStr = receipt.createdAt ? format(new Date(receipt.createdAt), 'dd MMM yyyy') : '-';
+                  const timeStr = receipt.createdAt ? format(new Date(receipt.createdAt), 'hh:mm a') : '-';
+                  const custName = receipt.customer?.name || receipt.customerName || 'Walk-in';
+                  const itemCount = receipt.items?.length || 0;
 
-            {/* Mobile Cards */}
-            <div className="md:hidden space-y-4">
-              {receipts.map(receipt => (
-                <div key={receipt._id} className="card cursor-pointer" onClick={() => setSelectedReceipt(receipt)}>
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <div className="font-mono font-bold text-primary">{receipt.receiptNumber}</div>
-                      <div className="text-xs text-gray-500">{format(new Date(receipt.createdAt), 'dd MMM yyyy, hh:mm a')}</div>
-                    </div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${receipt.paymentMethod === 'cash' ? 'bg-green-100 text-green-700' : receipt.paymentMethod === 'card' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                      {receipt.paymentMethod}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mb-3">
-                    <div className="text-sm text-gray-600">{receipt.customerName || 'Walk-in'}</div>
-                    <div className="text-sm text-gray-500">{receipt.items.length} item(s)</div>
-                  </div>
-                  <div className="flex justify-between items-center pt-3 border-t">
-                    <div className="text-2xl font-bold text-primary">Rs. {receipt.totalAmount.toFixed(2)}</div>
-                    <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                      <button onClick={() => handlePrint(receipt)} className="p-2 bg-gray-100 hover:bg-gray-200 rounded">🖨️</button>
-                      <button onClick={() => handleDownloadPDF(receipt)} className="p-2 bg-gray-100 hover:bg-gray-200 rounded">📄</button>
-                      <button onClick={() => setDeleteConfirm(receipt._id)} className="p-2 bg-red-50 hover:bg-red-100 rounded text-red-500">🗑️</button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+                  return (
+                    <TableRow
+                      key={receipt._id}
+                      hover
+                      onClick={() => handleOpenPreview(receipt)}
+                      sx={{
+                        cursor: 'pointer',
+                        opacity: receipt.status === 'voided' ? 0.65 : 1
+                      }}
+                    >
+                      {/* Receipt Number */}
+                      <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'primary.main' }}>
+                        {receipt.receiptNumber}
+                      </TableCell>
+
+                      {/* Date & Time */}
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={600}>
+                          {dateStr}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {timeStr}
+                        </Typography>
+                      </TableCell>
+
+                      {/* Customer */}
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={500}>
+                          {custName}
+                        </Typography>
+                        {receipt.customer?.phone && (
+                          <Typography variant="caption" color="text.secondary">
+                            {receipt.customer.phone}
+                          </Typography>
+                        )}
+                      </TableCell>
+
+                      {/* Items Count */}
+                      <TableCell align="center">
+                        <Chip label={`${itemCount} items`} size="small" variant="outlined" />
+                      </TableCell>
+
+                      {/* Payment Method */}
+                      <TableCell>
+                        <Chip
+                          label={(receipt.payment?.method || receipt.paymentMethod || 'cash').toUpperCase()}
+                          size="small"
+                          color="secondary"
+                          variant="outlined"
+                        />
+                      </TableCell>
+
+                      {/* Status */}
+                      <TableCell>{renderStatusChip(receipt.status)}</TableCell>
+
+                      {/* Total Amount */}
+                      <TableCell align="right">
+                        <Typography variant="subtitle2" fontWeight={800} color="primary.main">
+                          {formatCurrency(receipt.totalAmount, receipt.currency || userCurrency)}
+                        </Typography>
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <Tooltip title="View Receipt Preview">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => handleOpenPreview(receipt)}
+                              aria-label={`view receipt ${receipt.receiptNumber}`}
+                            >
+                              <ViewIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+
+                          <Tooltip title="Print 80mm Receipt">
+                            <IconButton
+                              size="small"
+                              color="default"
+                              onClick={() => handlePrint(receipt)}
+                              aria-label={`print receipt ${receipt.receiptNumber}`}
+                            >
+                              <PrintIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+
+                          <Tooltip title="Download PDF">
+                            <IconButton
+                              size="small"
+                              color="default"
+                              onClick={() => handleDownloadPdf(receipt)}
+                              aria-label={`download pdf for ${receipt.receiptNumber}`}
+                            >
+                              <PdfIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+
+                          {receipt.status === 'issued' && (
+                            <Tooltip title="Void this receipt">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleOpenVoidDialog(receipt)}
+                                aria-label={`void receipt ${receipt.receiptNumber}`}
+                              >
+                                <VoidIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+
+            {/* Pagination Controls */}
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              component="div"
+              count={pagination?.total ?? receipts.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
+          </TableContainer>
         )}
 
-        {/* Delete Confirmation */}
-        {deleteConfirm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 max-w-sm w-full">
-              <div className="text-center mb-4">
-                <div className="text-4xl mb-2">⚠️</div>
-                <h3 className="text-lg font-bold">Delete Receipt?</h3>
-                <p className="text-gray-600 text-sm">This cannot be undone.</p>
-              </div>
-              <div className="flex gap-3">
-                <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
-                <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">Delete</button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Void Receipt Modal Dialog */}
+        <Dialog open={voidDialogOpen} onClose={() => setVoidDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ fontWeight: 700, color: 'error.main' }}>
+            Void Receipt: {receiptToVoid?.receiptNumber}
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText sx={{ mb: 2 }}>
+              Voiding an issued receipt permanently flags it as invalid in sales reporting and updates its audit trail. This operation cannot be reversed.
+            </DialogContentText>
 
-        {/* Receipt Modal */}
-        {selectedReceipt && <ReceiptModal receipt={selectedReceipt} onClose={() => setSelectedReceipt(null)} />}
-      </div>
-    </div>
+            {voidError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {voidError}
+              </Alert>
+            )}
+
+            <TextField
+              fullWidth
+              autoFocus
+              multiline
+              rows={3}
+              label="Mandatory Reason for Voiding *"
+              placeholder="e.g. Customer returned items / Cashier entered incorrect amount"
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+            />
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2.5 }}>
+            <Button onClick={() => setVoidDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleConfirmVoid}
+              color="error"
+              variant="contained"
+              disabled={!voidReason.trim() || voidReason.trim().length < 3}
+            >
+              Confirm & Void Receipt
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Full Dual-Mode Receipt Preview Modal */}
+        {selectedReceipt && (
+          <ReceiptPreviewModal
+            open={previewOpen}
+            onClose={() => setPreviewOpen(false)}
+            receipt={selectedReceipt}
+            business={user || {}}
+          />
+        )}
+      </Box>
+    </AppLayout>
   );
 }
