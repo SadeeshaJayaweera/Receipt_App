@@ -28,7 +28,7 @@ describe('Auth Middleware Unit Tests', () => {
     authMiddleware(req, res, next);
 
     assert.equal(statusCode, 401);
-    assert.deepEqual(jsonResponse, { message: 'No token provided' });
+    assert.deepEqual(jsonResponse, { status: 'fail', message: 'No token provided' });
     assert.equal(nextCalled, false);
   });
 
@@ -53,7 +53,7 @@ describe('Auth Middleware Unit Tests', () => {
     authMiddleware(req, res, next);
 
     assert.equal(statusCode, 401);
-    assert.deepEqual(jsonResponse, { message: 'Invalid token' });
+    assert.deepEqual(jsonResponse, { status: 'fail', message: 'Invalid token' });
     assert.equal(nextCalled, false);
   });
 

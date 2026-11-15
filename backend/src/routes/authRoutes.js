@@ -8,6 +8,7 @@ const router = express.Router();
 
 router.post('/register', validate(registerSchema), (req, res, next) => authController.register(req, res, next));
 router.post('/login', validate(loginSchema), (req, res, next) => authController.login(req, res, next));
+router.post('/logout', authMiddleware, (req, res, next) => authController.logout(req, res, next));
 router.get('/profile', authMiddleware, (req, res, next) => authController.getProfile(req, res, next));
 router.put('/profile', authMiddleware, validate(updateProfileSchema), (req, res, next) => authController.updateProfile(req, res, next));
 
