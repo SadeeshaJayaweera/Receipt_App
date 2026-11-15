@@ -6,7 +6,7 @@ const receiptItemSchema = z.object({
   quantity: z.coerce.number().int().min(1, 'Quantity must be at least 1'),
   price: z.coerce.number().min(0, 'Price cannot be negative'),
   subtotal: z.coerce.number().min(0, 'Subtotal cannot be negative')
-});
+}).strict('Unrecognized field in item');
 
 const createReceiptSchema = z.object({
   items: z.array(receiptItemSchema).min(1, 'Receipt must contain at least one item'),
@@ -14,7 +14,7 @@ const createReceiptSchema = z.object({
   paymentMethod: z.enum(['cash', 'card', 'mobile']).default('cash'),
   customerName: z.string().trim().max(100).optional(),
   notes: z.string().trim().max(500).optional()
-});
+}).strict('Unrecognized field in receipt payload');
 
 const updateReceiptSchema = z.object({
   items: z.array(receiptItemSchema).min(1).optional(),
@@ -22,7 +22,7 @@ const updateReceiptSchema = z.object({
   paymentMethod: z.enum(['cash', 'card', 'mobile']).optional(),
   customerName: z.string().trim().max(100).optional(),
   notes: z.string().trim().max(500).optional()
-});
+}).strict('Unrecognized field in update payload');
 
 module.exports = {
   createReceiptSchema,
