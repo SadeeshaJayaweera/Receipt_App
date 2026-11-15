@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
-require('dotenv').config();
+const { config } = require('./src/config/env');
 
 const app = express();
 
@@ -11,7 +11,7 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
-  process.env.FRONTEND_URL,
+  config.FRONTEND_URL,
   /\.vercel\.app$/
 ].filter(Boolean);
 
@@ -58,14 +58,14 @@ app.use((req, res, next) => {
 });
 
 // MongoDB Connection (Only auto-connect if not in test environment without URI)
-if (process.env.NODE_ENV !== 'test' && process.env.MONGODB_URI) {
-  mongoose.connect(process.env.MONGODB_URI).then(() => {
+if (config.NODE_ENV !== 'test' && config.MONGODB_URI) {
+  mongoose.connect(config.MONGODB_URI).then(() => {
     console.log('✅ MongoDB connected successfully');
     console.log(`Database: ${mongoose.connection.name}`);
   })
   .catch(err => {
     console.error('❌ MongoDB connection error:', err.message);
-    if (process.env.NODE_ENV === 'production') {
+    if (config.NODE_ENV === 'production') {
       process.exit(1);
     }
   });
@@ -103,8 +103,8 @@ app.use((err, req, res, next) => {
 });
 
 // Only listen if not in Vercel serverless environment
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  const PORT = process.env.PORT || 5000;
+if (config.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  const PORT = config.PORT;
   app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 }
 
