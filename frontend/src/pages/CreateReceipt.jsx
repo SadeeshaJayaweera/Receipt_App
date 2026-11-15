@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { downloadReceiptPdf } from '../utils/pdfGenerator';
+import { printThermalReceipt } from '../utils/thermalPrinter';
+import ReceiptThermalPreview from '../components/ReceiptThermalPreview';
 import useFlavourStore from '../store/flavourStore';
 import useReceiptStore from '../store/receiptStore';
 import useAuthStore from '../store/authStore';
@@ -108,137 +110,29 @@ export default function CreateReceipt() {
     }
   };
 
+  const getActiveReceiptObject = () => {
+    return createdReceipt || {
+      receiptNumber: 'NEW',
+      createdAt: receiptDate || new Date().toISOString(),
+      currency: currency || user?.defaultCurrency || 'LKR',
+      customer: { name: customerName },
+      customerName,
+      items,
+      pricing: { subtotal: totalAmount, discount: 0, tax: 0, grandTotal: totalAmount },
+      totalAmount,
+      payment: { method: paymentMethod },
+      paymentMethod,
+      notes
+    };
+  };
+
   const handlePrint = () => {
-    const currentTime = new Date();
-    const printWindow = window.open('', '_blank', 'width=400,height=700');
-    if (!printWindow) {
-      alert('Please allow pop-ups to print the receipt');
-      return;
-    }
-
-    const receiptHTML = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Receipt - ${createdReceipt?.receiptNumber || 'Print'}</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            @page { size: 80mm auto; margin: 0; }
-            @media print {
-              body { width: 80mm; }
-            }
-            body { 
-              font-family: 'Courier New', Courier, monospace; 
-              padding: 10px;
-              font-size: 12px;
-              width: 80mm;
-              max-width: 80mm;
-              background: white;
-              color: #000;
-            }
-            .receipt { width: 100%; }
-            .text-center { text-align: center; }
-            .store-name { font-size: 18px; font-weight: bold; margin-bottom: 2px; }
-            .store-info { font-size: 11px; margin: 2px 0; }
-            .divider { border-top: 1px dashed #000; margin: 8px 0; }
-            .divider-thick { border-top: 2px solid #000; margin: 8px 0; }
-            .row { display: flex; justify-content: space-between; margin: 3px 0; font-size: 11px; }
-            .items-header { font-weight: bold; font-size: 10px; padding: 4px 0; border-bottom: 1px solid #000; display: flex; }
-            .item-row { display: flex; padding: 4px 0; font-size: 11px; border-bottom: 1px dotted #ccc; }
-            .col-item { flex: 1; }
-            .col-qty { width: 35px; text-align: center; }
-            .col-price { width: 70px; text-align: right; }
-            .total-section { margin-top: 8px; }
-            .grand-total { font-size: 16px; font-weight: bold; margin: 8px 0; }
-            .footer { text-align: center; margin-top: 15px; padding-top: 10px; border-top: 1px dashed #000; }
-            .footer-text { font-size: 12px; font-weight: bold; }
-            .footer-sub { font-size: 10px; margin-top: 4px; color: #444; }
-          </style>
-        </head>
-        <body>
-          <div class="receipt">
-            <div class="text-center">
-              <div class="store-name">🧃 FRESH JUICE</div>
-              <div class="store-info">${user?.businessName || 'Juice Store'}</div>
-              <div class="store-info">Tel: ${user?.phone || 'N/A'}</div>
-              ${user?.address ? `<div class="store-info">${user.address}</div>` : ''}
-            </div>
-            
-            <div class="divider"></div>
-            
-            <div class="row"><span>Receipt #:</span><span><strong>${createdReceipt?.receiptNumber || 'NEW'}</strong></span></div>
-            <div class="row"><span>Date:</span><span>${new Date(receiptDate).toLocaleDateString()}</span></div>
-            <div class="row"><span>Time:</span><span>${currentTime.toLocaleTimeString()}</span></div>
-            ${customerName ? `<div class="row"><span>Customer:</span><span>${customerName}</span></div>` : ''}
-            
-            <div class="divider"></div>
-            
-            <div class="items-header">
-              <span class="col-item">ITEM</span>
-              <span class="col-qty">QTY</span>
-              <span class="col-price">AMOUNT</span>
-            </div>
-            
-            ${items.map(item => `
-              <div class="item-row">
-                <span class="col-item">${item.flavourName}</span>
-                <span class="col-qty">${item.quantity}</span>
-                <span class="col-price">${formatCurrency(item.subtotal)}</span>
-              </div>
-            `).join('')}
-            
-            <div class="divider"></div>
-            
-            <div class="total-section">
-              <div class="row"><span>Subtotal:</span><span>${formatCurrency(totalAmount)}</span></div>
-              <div class="row"><span>Tax (0%):</span><span>${formatCurrency(0)}</span></div>
-            </div>
-            
-            <div class="divider-thick"></div>
-            
-            <div class="row grand-total"><span>TOTAL:</span><span>${formatCurrency(totalAmount)}</span></div>
-            
-            <div class="divider"></div>
-            
-            <div class="row"><span>Payment Method:</span><span style="text-transform: uppercase;">${paymentMethod}</span></div>
-            
-            <div class="footer">
-              <div class="footer-text">*** THANK YOU ***</div>
-              <div class="footer-sub">Please come again!</div>
-              <div class="footer-sub" style="margin-top: 8px;">Powered by Juice Receipt App</div>
-            </div>
-          </div>
-          <script>
-            window.onload = function() {
-              setTimeout(function() {
-                window.print();
-              }, 300);
-            };
-          </script>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(receiptHTML);
-    printWindow.document.close();
+    printThermalReceipt(getActiveReceiptObject(), user || {});
   };
 
   const handleDownloadPDF = async () => {
     try {
-      const receiptToExport = createdReceipt || {
-        receiptNumber: 'NEW',
-        createdAt: receiptDate || new Date().toISOString(),
-        currency: currency || user?.defaultCurrency || 'LKR',
-        customer: { name: customerName },
-        customerName,
-        items,
-        pricing: { subtotal: totalAmount, discount: 0, tax: 0, grandTotal: totalAmount },
-        totalAmount,
-        payment: { method: paymentMethod },
-        paymentMethod,
-        notes
-      };
-      downloadReceiptPdf(receiptToExport, user || {});
+      downloadReceiptPdf(getActiveReceiptObject(), user || {});
     } catch (error) {
       console.error('Failed to generate PDF:', error);
       alert('Failed to generate PDF. Please try again.');
@@ -253,58 +147,12 @@ export default function CreateReceipt() {
     setNotes('');
   };
 
-  const currentDateTime = new Date();
-
   const ReceiptPreview = ({ receipt }) => (
-    <div id="receipt-content" ref={receiptRef} className="bg-white font-mono text-xs sm:text-sm max-w-xs mx-auto p-4 shadow-lg border" style={{ width: '300px' }}>
-      <div className="text-center border-b-2 border-dashed border-gray-400 pb-3 mb-3">
-        <div className="text-lg sm:text-xl font-bold">🧃 FRESH JUICE</div>
-        <div className="text-gray-600">{user?.businessName || 'Juice Store'}</div>
-        <div className="text-gray-500 text-xs mt-1">Tel: {user?.phone || 'N/A'}</div>
-      </div>
-
-      <div className="text-xs mb-3">
-        <div className="flex justify-between"><span>Receipt #:</span><span className="font-semibold">{receipt?.receiptNumber || 'NEW'}</span></div>
-        <div className="flex justify-between"><span>Date:</span><span>{new Date(receiptDate).toLocaleDateString()}</span></div>
-        <div className="flex justify-between"><span>Time:</span><span>{currentDateTime.toLocaleTimeString()}</span></div>
-        {customerName && <div className="flex justify-between"><span>Customer:</span><span>{customerName}</span></div>}
-      </div>
-
-      <div className="border-t border-dashed border-gray-400 my-2"></div>
-
-      <div className="flex justify-between font-bold text-xs mb-1">
-        <span className="flex-1">ITEM</span>
-        <span className="w-10 text-center">QTY</span>
-        <span className="w-20 text-right">AMOUNT</span>
-      </div>
-
-      <div className="border-t border-gray-300 mb-2"></div>
-
-      <div className="mb-3">
-        {items.length > 0 ? items.map((item, index) => (
-          <div key={index} className="flex justify-between py-1">
-            <span className="flex-1 truncate">{item.flavourName}</span>
-            <span className="w-10 text-center">{item.quantity}</span>
-            <span className="w-20 text-right">{formatCurrency(item.subtotal)}</span>
-          </div>
-        )) : <div className="text-center text-gray-400 py-2">No items</div>}
-      </div>
-
-      <div className="border-t border-dashed border-gray-400 my-2"></div>
-
-      <div className="flex justify-between py-1"><span>Subtotal:</span><span>{formatCurrency(totalAmount)}</span></div>
-      <div className="flex justify-between py-1"><span>Tax (0%):</span><span>{formatCurrency(0)}</span></div>
-      <div className="flex justify-between py-2 font-bold text-base border-t-2 border-black mt-2">
-        <span>TOTAL:</span><span>{formatCurrency(totalAmount)}</span>
-      </div>
-
-      <div className="border-t border-dashed border-gray-400 my-2"></div>
-      <div className="flex justify-between text-xs"><span>Payment:</span><span className="capitalize font-semibold">{paymentMethod}</span></div>
-
-      <div className="text-center mt-4 pt-3 border-t border-dashed border-gray-400">
-        <div className="text-xs">*** THANK YOU ***</div>
-        <div className="text-xs text-gray-500 mt-1">Please come again!</div>
-      </div>
+    <div id="receipt-content" ref={receiptRef} className="flex justify-center">
+      <ReceiptThermalPreview
+        receipt={receipt || getActiveReceiptObject()}
+        business={user || {}}
+      />
     </div>
   );
 
